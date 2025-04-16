@@ -1,0 +1,13 @@
+name = "SphericalSpatialTrees"
+uuid = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
+authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
