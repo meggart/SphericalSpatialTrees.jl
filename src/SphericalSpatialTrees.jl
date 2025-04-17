@@ -1,5 +1,100 @@
 module SphericalSpatialTrees
 
-# Write your package code here.
+using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphereFromGeographic,
+    spherical_distance, SphericalCap, UnitSphericalPoint
+import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
+    query, sanitize_predicate, node_extent
+import GeometryOps: extent
+import GeometryOps.Extents: Extent, bounds
+
+struct RegularGridTree{DX,DY,T,S}
+    x::DX
+    y::DY
+    trans::T
+    tag::S
+end
+RegularGridTree(x, y) = RegularGridTree(x, y, identity, nothing)
+get_tag(r::RegularGridTree) = r.tag
+function extent(r::RegularGridTree, x1, x2, y1, y2)
+    Extent(X=(r.x[x1], r.x[x2]), Y=(r.y[y1], r.y[y2]))
+end
+function exfromlinind(r::RegularGridTree, i)
+    iy, ix = fldmod1(i, length(r.x) - 1)
+    Extent(X=(r.x[ix], r.x[ix+1]), Y=(r.y[iy], r.y[iy+1]))
+end
+
+nlevel(r::RegularGridTree) = max(ceil(Int, log(length(r.x))), ceil(Int, log(length(r.y))))
+
+struct TreeIndex
+    x::Tuple{Int,Int}
+    y::Tuple{Int,Int}
+    function TreeIndex(x::Tuple{Int,Int}, y::Tuple{Int,Int})
+        (last(x) <= first(x) || last(y) <= first(y)) && error()
+        new(x, y)
+    end
+end
+
+_isone(t) = last(t) - first(t) == 1
+_nchild(i::TreeIndex) = 4 ÷ (_isone(i.x) + _isone(i.y) + 1)
+split_left((x1, x2)) = (x1, x1 + div(x2 - x1, 2))
+split_right((x1, x2)) = (x1 + div(x2 - x1, 2), x2)
+struct TreeNode{T<:RegularGridTree}
+    grid::T
+    index::TreeIndex
+end
+linind(t::TreeNode) = linind(get_tag(t.grid), t)
+linind(::Nothing, t::TreeNode) = t.index.x[1] + (t.index.y[1] - 1) * (length(t.grid.x) - 1)
+function correct_index(i, index)
+    i = ifelse(_isone(index.x), i + 2, i)
+    i = ifelse(_isone(index.y), i * 2, i)
+    i
+end
+function getchild(t::TreeNode, i)
+    i = correct_index(i, t.index)
+    res = i == 1 ? TreeNode(t.grid, TreeIndex(split_left(t.index.x), split_left(t.index.y))) :
+          i == 2 ? TreeNode(t.grid, TreeIndex(split_left(t.index.x), split_right(t.index.y))) :
+          i == 3 ? TreeNode(t.grid, TreeIndex(split_right(t.index.x), split_left(t.index.y))) :
+          i == 4 ? TreeNode(t.grid, TreeIndex(split_right(t.index.x), split_right(t.index.y))) :
+          throw(ArgumentError("TreeNodes can only be indexed with indices 1:4"))
+    old_extent = node_extent(t)
+    new_extent = node_extent(res)
+    if new_extent.radius > old_extent.radius
+        push!(Main.badcapt, (t, res, i))
+        error()
+    end
+    res
+end
+nchild(n::TreeNode) = _nchild(n.index)
+getchild(n::TreeNode) = (getchild(n, i) for i in 1:nchild(n))
+rootnode(t::RegularGridTree) = TreeNode(t, TreeIndex((1, length(t.x)), (1, length(t.y))))
+extent(node::TreeNode) = extent(node.grid, node.index.x[1], node.index.x[2], node.index.y[1], node.index.y[2])
+isleaf(node::TreeNode) = _isone(node.index.x) && _isone(node.index.y)
+node_extent(node::TreeNode) = circle_from_extent_1(extent(node), node.grid.trans)
+child_indices_extents(tree::TreeNode) = ((linind(tree), circle_from_extent_1(extent(tree), tree.grid.trans)),)
+
+function circle_from_extent_1(ex, trans)
+    (x1, x2), (y1, y2) = bounds(ex)
+    center_source = (x2 + x1) / 2, (y2 + y1) / 2
+    @show x1, x2, y1, y2, center_source
+    a, b, c, d = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
+    e = trans(center_source)
+    @show a, b, c, d, e
+    center = UnitSphereFromGeographic()(e)
+    points = map(UnitSphereFromGeographic(), (a, b, c, d))
+    @show center, points
+    alld = map(p -> spherical_distance(center, p), points)
+    r = reduce(max, alld)
+    res = SphericalCap(center, r)
+    @assert all(p -> _contains(res, p), points)
+    res
+end
+function circle_from_extent_2(ex)
+    (x1, x2), (y1, y2) = bounds(ex)
+    points = map(UnitSphereFromGeographic(), ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
+    cap1 = SphericalCap(points[1], points[2], points[3])
+    cap2 = SphericalCap(points[2], points[3], points[4])
+    UnitSpherical._merge(cap1, cap2)
+end
+
 
 end
