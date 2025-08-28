@@ -75,17 +75,19 @@ child_indices_extents(tree::TreeNode) = ((linind(tree), circle_from_extent_1(ext
 function circle_from_extent_1(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
     center_source = (x2 + x1) / 2, (y2 + y1) / 2
-    @show x1, x2, y1, y2, center_source
     a, b, c, d = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
     e = trans(center_source)
-    @show a, b, c, d, e
     center = UnitSphereFromGeographic()(e)
     points = map(UnitSphereFromGeographic(), (a, b, c, d))
-    @show center, points
     alld = map(p -> spherical_distance(center, p), points)
     r = reduce(max, alld)
-    res = SphericalCap(center, r)
-    @assert all(p -> _contains(res, p), points)
+    res = SphericalCap(center, r*1.0001)
+    if !all(_contains.((res,), points))
+        @show a,b,c,d
+        @show e
+        @show alld
+        error()
+    end
     res
 end
 function circle_from_extent_2(ex)
