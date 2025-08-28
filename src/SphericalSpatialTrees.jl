@@ -1,11 +1,14 @@
 module SphericalSpatialTrees
 
+include("nativeisea.jl")
+
 using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphereFromGeographic,
     spherical_distance, SphericalCap, UnitSphericalPoint
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
     query, sanitize_predicate, node_extent
 import GeometryOps: extent
 import GeometryOps.Extents: Extent, bounds
+import LinearAlgebra: norm
 
 struct RegularGridTree{DX,DY,T,S}
     x::DX
@@ -13,7 +16,7 @@ struct RegularGridTree{DX,DY,T,S}
     trans::T
     tag::S
 end
-RegularGridTree(x, y) = RegularGridTree(x, y, identity, nothing)
+RegularGridTree(x, y) = RegularGridTree(x, y, UnitSphereFromGeographic(), nothing)
 get_tag(r::RegularGridTree) = r.tag
 function extent(r::RegularGridTree, x1, x2, y1, y2)
     Extent(X=(r.x[x1], r.x[x2]), Y=(r.y[y1], r.y[y2]))
@@ -43,7 +46,10 @@ struct TreeNode{T<:RegularGridTree}
     index::TreeIndex
 end
 linind(t::TreeNode) = linind(get_tag(t.grid), t)
-linind(::Nothing, t::TreeNode) = t.index.x[1] + (t.index.y[1] - 1) * (length(t.grid.x) - 1)
+function linind(::Nothing, t::TreeNode)
+    LinearIndices((length(t.grid.x)-1, length(t.grid.y)-1))[t.index.x[1], t.index.y[1]]
+    # t.index.x[1] + (t.index.y[1] - 1) * (length(t.grid.x) - 1)
+end
 function correct_index(i, index)
     i = ifelse(_isone(index.x), i + 2, i)
     i = ifelse(_isone(index.y), i * 2, i)
@@ -56,12 +62,12 @@ function getchild(t::TreeNode, i)
           i == 3 ? TreeNode(t.grid, TreeIndex(split_right(t.index.x), split_left(t.index.y))) :
           i == 4 ? TreeNode(t.grid, TreeIndex(split_right(t.index.x), split_right(t.index.y))) :
           throw(ArgumentError("TreeNodes can only be indexed with indices 1:4"))
-    old_extent = node_extent(t)
-    new_extent = node_extent(res)
-    if new_extent.radius > old_extent.radius
-        push!(Main.badcapt, (t, res, i))
-        error()
-    end
+    # old_extent = node_extent(t)
+    # new_extent = node_extent(res)
+    # if new_extent.radius > old_extent.radius
+    #     push!(Main.badcapt, (t, res, i))
+    #     error()
+    # end
     res
 end
 nchild(n::TreeNode) = _nchild(n.index)
@@ -74,29 +80,50 @@ child_indices_extents(tree::TreeNode) = ((linind(tree), circle_from_extent_1(ext
 
 function circle_from_extent_1(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
-    center_source = (x2 + x1) / 2, (y2 + y1) / 2
-    a, b, c, d = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
-    e = trans(center_source)
-    center = UnitSphereFromGeographic()(e)
-    points = map(UnitSphereFromGeographic(), (a, b, c, d))
-    alld = map(p -> spherical_distance(center, p), points)
+
+    cx,cy = (x2 + x1) / 2, (y2 + y1) / 2
+    a, b, c, d, e, f, g, h = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2),(cx,y1),(x2,cy),(cx,y2),(x1,cy)))
+    z = trans((cx,cy))
+    # center = UnitSphereFromGeographic()(e)
+    # points = map(UnitSphereFromGeographic(), (a, b, c, d))
+    # alld = map(p -> spherical_distance(center, p), points)
+    alld = map(p->spherical_distance(z,p), (a, b, c, d,e,f,g,h))
     r = reduce(max, alld)
-    res = SphericalCap(center, r*1.0001)
-    if !all(_contains.((res,), points))
-        @show a,b,c,d
+    res = SphericalCap(z, r*1.0001)
+    if !all(_contains.((res,), (a,b,c,d)))
+        @show a,b,c,d,e,f,g,h
         @show e
         @show alld
         error()
     end
     res
 end
-function circle_from_extent_2(ex)
+
+function index_to_lonlat(i::Integer,t::RegularGridTree{<:Any,<:Any,UnitSphereFromGeographic})
+    xhalfstep = step(t.x) / 2
+    yhalfstep = step(t.y) / 2
+    i,j = CartesianIndices((length(t.x)-1,length(t.y)-1))[i].I
+    x = t.x[i] + xhalfstep
+    y = t.y[j] + yhalfstep
+    x,y
+end
+
+function index_to_unitsphere(i::Integer,t::RegularGridTree)
+    xhalfstep = step(t.x) / 2
+    yhalfstep = step(t.y) / 2
+    i,j = CartesianIndices((length(t.x)-1,length(t.y)-1))[i].I
+    x = t.x[i] + xhalfstep
+    y = t.y[j] + yhalfstep
+    t.trans((x,y))
+end
+function circle_from_extent_2(ex,trans)
     (x1, x2), (y1, y2) = bounds(ex)
-    points = map(UnitSphereFromGeographic(), ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
+    points = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
     cap1 = SphericalCap(points[1], points[2], points[3])
     cap2 = SphericalCap(points[2], points[3], points[4])
     UnitSpherical._merge(cap1, cap2)
 end
 
+include("iseatree.jl")
 
 end
