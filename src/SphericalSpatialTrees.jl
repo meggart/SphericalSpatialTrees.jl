@@ -99,19 +99,24 @@ function circle_from_extent_1(ex, trans)
     res
 end
 
+get_step(x::AbstractRange) = step(x)
+get_step(x) = length(x) > 1 ? (x[2] - x[1]) : one(eltype(x))
+
 function index_to_lonlat(i::Integer,t::RegularGridTree{<:Any,<:Any,UnitSphereFromGeographic})
-    xhalfstep = step(t.x) / 2
-    yhalfstep = step(t.y) / 2
-    i,j = CartesianIndices((length(t.x)-1,length(t.y)-1))[i].I
+    xhalfstep = get_step(t.x) / 2
+    yhalfstep = get_step(t.y) / 2
+    i,j = lin_to_cart(i,t)
     x = t.x[i] + xhalfstep
     y = t.y[j] + yhalfstep
     x,y
 end
 
+lin_to_cart(i::Integer,t::RegularGridTree) = CartesianIndices((length(t.x)-1,length(t.y)-1))[i].I
+
 function index_to_unitsphere(i::Integer,t::RegularGridTree)
     xhalfstep = step(t.x) / 2
     yhalfstep = step(t.y) / 2
-    i,j = CartesianIndices((length(t.x)-1,length(t.y)-1))[i].I
+    i,j = lin_to_cart(i,t)
     x = t.x[i] + xhalfstep
     y = t.y[j] + yhalfstep
     t.trans((x,y))
@@ -123,6 +128,15 @@ function circle_from_extent_2(ex,trans)
     cap2 = SphericalCap(points[2], points[3], points[4])
     UnitSpherical._merge(cap1, cap2)
 end
+
+function get_subtree(source_tree::RegularGridTree, target_chunk, target_tree::RegularGridTree, chunksx, chunksy)
+    ix, iy = lin_to_cart(target_chunk, source_tree)
+    ix1, ix2 = extrema(chunksx[ix])
+    iy1, iy2 = extrema(chunksy[iy])
+    TreeNode(target_tree, TreeIndex((ix1, ix2), (iy1, iy2)))
+end
+
+
 
 include("iseatree.jl")
 

@@ -5,7 +5,7 @@ using .NativeISEA: ISEA10, ISEA, InvISEA10
 using StaticArrays: @SVector
 
 struct ISEACircleTree
-    isea::ISEA
+    isea::ISEA{Float64}
     resolution::Int
 end
 ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(), resolution)
@@ -44,32 +44,70 @@ function linind(tag::ISEATag, t::TreeNode)
     #@show t.index.x[1]-1,t.index.y[1]-1,t.grid.trans.i-1,tag.resolution
     # @assert t.index.x[1]==t.index.x[2]-1
     # @assert t.index.y[1]==t.index.y[2]-1
-    LinearIndices((2^tag.resolution,2^tag.resolution,10))[t.index.x[1], t.index.y[1], t.grid.trans.i] - 1
+    LinearIndices((2^tag.resolution,2^tag.resolution,10))[t.index.x[1], t.index.y[1], t.grid.trans.i]
     #Int(Cell10(t.index.x[1] - 1, t.index.y[1] - 1, t.grid.trans.i - 1, tag.resolution))
     #t.index.x[1] + (t.index.y[1]-1)*(length(t.grid.x)-1)
 end
 
-function getchild(t::ISEACircleTree, i)
+function get_xyranges(t::ISEACircleTree)
     n = 2^t.resolution
     xr = range(0, 1, length=n + 1)
     yr = range(0,1,length=n+1)
+    xr,yr
+end
+
+function getchild(t::ISEACircleTree, i)
+    xr,yr = get_xyranges(t)
     t1 = _RotatedISEAtoUnitSphere(i,InvISEA10(t.isea))
     rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution)))
 end
 
-function index_to_unitsphere(i::Integer,t::ISEACircleTree)
+function lin_to_cart(i::Integer,t::ISEACircleTree)
     n = 2^t.resolution
-    xr = range(0, 1, length=n + 1)
-    yr = range(0, 1, length=n + 1)
+    CartesianIndices((n,n,10))[i].I
+end
+function index_to_unitsphere(i::Integer,t::ISEACircleTree)
+    xr,yr = get_xyranges(t)
     halfstep = step(xr) / 2
-    i,j,n = CartesianIndices((n,n,10))[i+1].I
-    x = xr[i+1] + halfstep
-    y = yr[j+1] + halfstep
-    getchild(t,n).grid.trans((x, y))
+    i,j,k = lin_to_cart(i,t)
+    x = xr[i] + halfstep
+    y = yr[j] + halfstep
+    getchild(t,k).grid.trans((x, y))
 end
 
 
 function index_to_lonlat(i::Integer,t)
     uind = index_to_unitsphere(i,t)
     GeographicFromUnitSphere()(uind)
+end
+
+"""
+    get_subtree(source_tree, target_chunk, target_tree)
+
+Expands the target chunk to to the full subtree containing all grid cells at the target resolution.
+"""
+function get_subtree(source_tree::ISEACircleTree, target_chunk, target_tree::ISEACircleTree)
+    ix, iy, n = lin_to_cart(target_chunk + 1, source_tree)
+    resolution_difference = target_tree.resolution - source_tree.resolution
+    fac = 2^resolution_difference
+    ix1 = (ix - 1) * fac + 1
+    iy1 = (iy - 1) * fac + 1
+    ix2 = ix1 + fac
+    iy2 = iy1 + fac
+    gridtree = getchild(target_tree, n).grid
+    xsub = gridtree.x[ix1:ix2]
+    ysub = gridtree.y[iy1:iy2]
+    trsmall = RegularGridTree(xsub,ysub,gridtree.trans,gridtree.tag)
+    rootnode(trsmall)
+end
+
+function get_subindices(source_tree::ISEACircleTree, target_chunk, target_tree::ISEACircleTree)
+    ix, iy, n = lin_to_cart(target_chunk, source_tree)
+    resolution_difference = target_tree.resolution - source_tree.resolution
+    fac = 2^resolution_difference
+    ix1 = (ix - 1) * fac + 1
+    iy1 = (iy - 1) * fac + 1
+    ix2 = ix1 + fac -1 
+    iy2 = iy1 + fac -1
+    ix1:ix2, iy1:iy2, n
 end
