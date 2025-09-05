@@ -315,8 +315,9 @@ const tri2diamond = [(1,1),(2,1),(3,1),(4,1),(5,1),
                (9,2),(8,2),(7,2),(6,2),(10,2),
                (10,1),(6,1),(7,1),(8,1),(9,1),
                (1,2),(2,2),(3,2),(4,2),(5,2)]
-struct ISEA10{T}<:Function
+struct ISEA10{T,R}<:Function
     isea::ISEA{T}
+    rot::Val{R}
 end
 ISEA10(args...;kwargs...) = ISEA10(ISEA(args...;kwargs...))
 function _twenty_to_ten(n,x1,x2)
@@ -328,22 +329,33 @@ function _twenty_to_ten(n,x1,x2)
     end
     return i,x1,x2
 end
-function (isea::ISEA10)(p::UnitSphericalPoint)
+function (isea::ISEA10{<:Any,false})(p::UnitSphericalPoint)
     _twenty_to_ten(_transform_isea(isea.isea,p)...)
+end
+function (isea::ISEA10{<:Any,true})(p::UnitSphericalPoint)
+    i,x,y = _twenty_to_ten(_transform_isea(isea.isea,p)...)
+    x,y = trans_matrix * @SVector([x,y])
+    i,x,y/sqrt(3)*2
 end
 (isea::ISEA10)(latlon::NTuple{2}) = isea(UnitSphericalPoint(latlon))
 
-struct InvISEA10{T} <: Function
+struct InvISEA10{T,R} <: Function
     isea::ISEA{T}
+    rot::Val{R}
 end
-Base.inv(isea::ISEA10) = InvISEA10(isea.isea)
-Base.inv(isea::InvISEA10) = ISEA10(isea.isea)
+Base.inv(isea::ISEA10) = InvISEA10(isea.isea,isea.rot)
+Base.inv(isea::InvISEA10) = ISEA10(isea.isea,isea.rot)
 function _ten_to_twenty(i,x1,x2)
     i1,i2 = diamond2tri[i]
     i,x1,x2 = x2 < 0 ? (i2,1-x1,-x2) : (i1,x1,x2)
     i,x1,x2
 end
-function (isea::InvISEA10)((i, x1, x2)) 
+function (isea::InvISEA10{<:Any,false})((i, x1, x2)) 
+    i,x1,x2 = _ten_to_twenty(i,x1,x2)
+    return itransform_point(x1,x2,isea.isea.triangles[i])
+end
+function (isea::InvISEA10{<:Any,true})((i, x1, x2)) 
+    x1, x2 = NativeISEA.itrans_matrix * @SVector([x1, x2 * sqrt(3) / 2])
     i,x1,x2 = _ten_to_twenty(i,x1,x2)
     return itransform_point(x1,x2,isea.isea.triangles[i])
 end

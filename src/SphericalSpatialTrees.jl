@@ -5,10 +5,11 @@ include("nativeisea.jl")
 using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphereFromGeographic,
     spherical_distance, SphericalCap, UnitSphericalPoint
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
-    query, sanitize_predicate, node_extent
+    query, sanitize_predicate, node_extent, do_query
 import GeometryOps: extent
 import GeometryOps.Extents: Extent, bounds
 import LinearAlgebra: norm
+import DimensionalData as DD
 
 struct RegularGridTree{DX,DY,T,S}
     x::DX
@@ -16,7 +17,14 @@ struct RegularGridTree{DX,DY,T,S}
     trans::T
     tag::S
 end
+get_projection(t::RegularGridTree) = t.trans
 RegularGridTree(x, y) = RegularGridTree(x, y, UnitSphereFromGeographic(), nothing)
+function RegularGridTree(ar::DD.AbstractDimArray,spatial_dims)
+    xr,yr = map(spatial_dims) do d
+        boundrangefromcenters(DD.dims(ar,d))
+    end
+    RegularGridTree(xr,yr)
+end
 get_tag(r::RegularGridTree) = r.tag
 function extent(r::RegularGridTree, x1, x2, y1, y2)
     Extent(X=(r.x[x1], r.x[x2]), Y=(r.y[y1], r.y[y2]))
@@ -25,6 +33,7 @@ function exfromlinind(r::RegularGridTree, i)
     iy, ix = fldmod1(i, length(r.x) - 1)
     Extent(X=(r.x[ix], r.x[ix+1]), Y=(r.y[iy], r.y[iy+1]))
 end
+
 
 nlevel(r::RegularGridTree) = max(ceil(Int, log(length(r.x))), ceil(Int, log(length(r.y))))
 
@@ -77,6 +86,7 @@ extent(node::TreeNode) = extent(node.grid, node.index.x[1], node.index.x[2], nod
 isleaf(node::TreeNode) = _isone(node.index.x) && _isone(node.index.y)
 node_extent(node::TreeNode) = circle_from_extent_1(extent(node), node.grid.trans)
 child_indices_extents(tree::TreeNode) = ((linind(tree), circle_from_extent_1(extent(tree), tree.grid.trans)),)
+nleaf(t::RegularGridTree) = (length(t.x)-1)*(length(t.y)-1)
 
 function circle_from_extent_1(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
@@ -136,8 +146,26 @@ function get_subtree(source_tree::RegularGridTree, target_chunk, target_tree::Re
     TreeNode(target_tree, TreeIndex((ix1, ix2), (iy1, iy2)))
 end
 
+function find_nearest(tree, point)
+    cur = Ref((Inf, -1))
+    point3 = UnitSphereFromGeographic()(point)
+    pred = p -> begin
+        _contains(p, point3)
+    end
+    do_query(pred, rootnode(tree)) do i
+        cur_min = first(cur[])
+        dist = norm(point3 - index_to_unitsphere(i, tree))
+        if dist < cur_min
+            cur[] = (dist, i)
+        end
+    end
+    cur[]
+end
+
+sanitize_predicate(pred::SphericalCap) = Base.Fix1(_intersects, pred)
+
 
 
 include("iseatree.jl")
-
+include("LazyProjection.jl")
 end

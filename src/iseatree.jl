@@ -11,21 +11,23 @@ struct ISEACircleTree
     yr::StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}
 end
 ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(), resolution, range(0.0,1.0,length=2^resolution+1),range(0.0,1.0,length=2^resolution+1))
+get_projection(t::ISEACircleTree) = ISEA10(t.isea,Val(true))
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
 rootnode(t::ISEACircleTree) = t
 extent(::ISEACircleTree) = SphericalCap(UnitSphereFromGeographic()((0.0,0.0)),π)
 isleaf(::ISEACircleTree) = false
 node_extent(t::ISEACircleTree) = extent(t)
+nleaf(t::ISEACircleTree) = 10*2^(2*t.resolution)
 struct _RotatedISEAtoUnitSphere{T}
     i::Int
     t::T
 end
 function (r::_RotatedISEAtoUnitSphere)((x,y))
-    x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
+    #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
     r.t((r.i, x, y))
 end
-_RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
+# _RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
 
 
 struct _RotatedISEAtolatlon{T}
@@ -33,7 +35,7 @@ struct _RotatedISEAtolatlon{T}
     t::T
 end
 function (r::_RotatedISEAtolatlon)((x,y))
-    x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
+    #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
     res = r.t((r.i, x, y))
     GeographicFromUnitSphere()(res)
 end
@@ -56,7 +58,7 @@ end
 
 function getchild(t::ISEACircleTree, i)
     xr,yr = get_xyranges(t)
-    t1 = _RotatedISEAtoUnitSphere(i,InvISEA10(t.isea))
+    t1 = _RotatedISEAtoUnitSphere(i,InvISEA10(t.isea,Val(true)))
     rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution)))
 end
 
@@ -108,4 +110,15 @@ function get_subindices(source_tree::ISEACircleTree, target_chunk, target_tree::
     ix2 = ix1 + fac -1 
     iy2 = iy1 + fac -1
     ix1:ix2, iy1:iy2, n
+end
+
+struct ProjectionTarget{T,CT}
+    tree::T
+    chunktree::CT
+end
+function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolution;iseaargs=())
+    isea = ISEA(iseaargs...)
+    tree = ISEACircleTree(isea,target_resolution)
+    chunktree = ISEACircleTree(chunk_resolution)
+    ProjectionTarget(tree,chunktree)
 end
