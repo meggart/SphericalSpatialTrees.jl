@@ -3,6 +3,7 @@ import DimensionalData as DD
 import GeometryOps.SpatialTreeInterface: do_dual_query
 using DiskArrays: AbstractDiskArray, findchunk, DiskArrays
 using OffsetArrays: OffsetArray
+using ProgressMeter
 
 #Some helper functions to detect the bounds of an area from their centers. 
 # This needs much better integration with DD
@@ -93,5 +94,14 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray,aout,targetinds::Abstra
         bbr = map(Colon(),i1.I,i2.I)
         data = OffsetArray(source.ar.data[bbr...],bbr...)
         outarray[vt] = data[vs]
+    end
+end
+
+function reproject!(target_array,source,target)
+    #this assumes there are only x and y axis
+    lazyarray = SST.LazyProjectedDiskArray(source,target)
+    targetchunks = eachchunk(target_array)
+    @showprogress pmap(targetchunks) do targetchunk
+        target_array.data[targetchunk...] = lazyarray[targetchunk...] 
     end
 end

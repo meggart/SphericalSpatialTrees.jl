@@ -3,6 +3,8 @@ using SphericalSpatialTrees: RegularGridTree, TreeNode, nchild, getchild, rootno
 using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects
 using .NativeISEA: ISEA10, ISEA, InvISEA10
 using StaticArrays: @SVector
+using YAXArrays: YAXArray, setchunks, Dataset, savedataset
+using FillArrays: Fill
 
 struct ISEACircleTree
     isea::ISEA{Float64}
@@ -127,14 +129,14 @@ function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolu
 end
 
 function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
-    path; arrayname=layer, arraymeta=Dict(), datasetmeta=Dict())
-    outdims = (Dim{:dggs_i}(0:(2^target_resolution-1)),
-        Dim{:dggs_j}(0:(2^target_resolution-1)),
-        Dim{:dggs_n}(0:9),
+    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict())
+    outdims = (DD.Dim{:dggs_i}(0:(2^target.tree.resolution-1)),
+        DD.Dim{:dggs_j}(0:(2^target.tree.resolution-1)),
+        DD.Dim{:dggs_n}(0:9),
     )
     a = YAXArray(outdims, Fill(0.0,length.(outdims)),arraymeta)
     cs = 2^(target.tree.resolution-target.chunktree.resolution)
-    p = Symbol(arrayname)=>setchunk(a,(cs,cs,1))
+    p = Symbol(arrayname)=>setchunks(a,(cs,cs,1))
     p = (p,)
     ds = Dataset(;properties=datasetmeta,p...)
     ds = savedataset(ds,path = path, skeleton=true, overwrite=true)
