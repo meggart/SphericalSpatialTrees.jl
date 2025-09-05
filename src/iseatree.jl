@@ -7,8 +7,10 @@ using StaticArrays: @SVector
 struct ISEACircleTree
     isea::ISEA{Float64}
     resolution::Int
+    xr::StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}
+    yr::StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}
 end
-ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(), resolution)
+ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(), resolution, range(0.0,1.0,length=2^resolution+1),range(0.0,1.0,length=2^resolution+1))
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
 rootnode(t::ISEACircleTree) = t
@@ -24,7 +26,6 @@ function (r::_RotatedISEAtoUnitSphere)((x,y))
     r.t((r.i, x, y))
 end
 _RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
-
 
 
 struct _RotatedISEAtolatlon{T}
@@ -50,10 +51,7 @@ function linind(tag::ISEATag, t::TreeNode)
 end
 
 function get_xyranges(t::ISEACircleTree)
-    n = 2^t.resolution
-    xr = range(0, 1, length=n + 1)
-    yr = range(0,1,length=n+1)
-    xr,yr
+    t.xr,t.yr
 end
 
 function getchild(t::ISEACircleTree, i)
