@@ -10,7 +10,10 @@ struct ISEACircleTree
     xr::StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}
     yr::StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}
 end
-ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(), resolution, range(0.0,1.0,length=2^resolution+1),range(0.0,1.0,length=2^resolution+1))
+ISEACircleTree(isea::ISEA,resolution::Int) = ISEACircleTree(isea,resolution, range(0.0,1.0,length=2^resolution+1),range(0.0,1.0,length=2^resolution+1))
+ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(),resolution)
+gridsize(t::ISEACircleTree) = (2^t.resolution, 2^t.resolution, 10)
+Base.ndims(t::ISEACircleTree) = 3
 get_projection(t::ISEACircleTree) = ISEA10(t.isea,Val(true))
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
@@ -121,4 +124,18 @@ function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolu
     tree = ISEACircleTree(isea,target_resolution)
     chunktree = ISEACircleTree(chunk_resolution)
     ProjectionTarget(tree,chunktree)
+end
+
+function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
+    path; arrayname=layer, arraymeta=Dict(), datasetmeta=Dict())
+    outdims = (Dim{:dggs_i}(0:(2^target_resolution-1)),
+        Dim{:dggs_j}(0:(2^target_resolution-1)),
+        Dim{:dggs_n}(0:9),
+    )
+    a = YAXArray(outdims, Fill(0.0,length.(outdims)),arraymeta)
+    cs = 2^(target.tree.resolution-target.chunktree.resolution)
+    p = Symbol(arrayname)=>setchunk(a,(cs,cs,1))
+    p = (p,)
+    ds = Dataset(;properties=datasetmeta,p...)
+    ds = savedataset(ds,path = path, skeleton=true, overwrite=true)
 end

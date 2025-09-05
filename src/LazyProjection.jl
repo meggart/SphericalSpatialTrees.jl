@@ -1,6 +1,8 @@
 import DiskArrays: eachchunk
 import DimensionalData as DD
 import GeometryOps.SpatialTreeInterface: do_dual_query
+using DiskArrays: AbstractDiskArray, findchunk, DiskArrays
+using OffsetArrays: OffsetArray
 
 #Some helper functions to detect the bounds of an area from their centers. 
 # This needs much better integration with DD
@@ -43,4 +45,53 @@ function compute_connected_chunks(source::ProjectionSource,target::ProjectionTar
         push!(connected_chunks[n1], n2)
     end
     connected_chunks
+end
+
+struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
+    source::ProjectionSource
+    target::ProjectionTarget
+end
+function LazyProjectedDiskArray(source,target)
+    LazyProjectedDiskArray{eltype(source.ar),ndims(target.tree),typeof(source),typeof(target)}(source,target)
+end
+Base.size(a::LazyProjectedDiskArray) = gridsize(a.target.tree)
+Base.ndims(a::LazyProjectedDiskArray) = ndims(a.target.tree)
+
+function compute_nearest_per_chunk(targetinds, targettree, isourcetrans,lookups,chunks)
+    alllinind = LinearIndices(gridsize(targettree))
+    Ntarget = ndims(targettree)
+    Nsource = length(lookups)
+    sourced = Dict{CartesianIndex{Nsource},Tuple{Vector{CartesianIndex{Nsource}},Vector{CartesianIndex{Ntarget}}}}()
+    for targetindex in CartesianIndices(targetinds)
+        ind = alllinind[targetindex]
+        unit = index_to_unitsphere(ind, targettree)
+        sourcecoords = isourcetrans(unit)
+        sourceindices = map(sourcecoords,lookups) do coord,look
+            DD.selectindices(look, DD.Near(coord))
+        end
+        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
+        cI = CartesianIndex(chunkindices)
+        vs,vt = get!(()->(CartesianIndex{Nsource}[],CartesianIndex{Ntarget}[]),sourced,cI)
+        push!(vt,targetindex)
+        push!(vs,CartesianIndex(sourceindices))
+    end
+    sourced
+end
+
+
+function DiskArrays.readblock!(a::LazyProjectedDiskArray,aout,targetinds::AbstractUnitRange...)
+    source = a.source
+    target = a.target
+    targettree = target.tree
+    isourcetrans = Base.inv(get_projection(source.tree))
+    lookups = DD.dims(source.lookups,source.chunks)
+    chunks = source.chunks
+    inds = compute_nearest_per_chunk(targetinds, targettree, isourcetrans,lookups,chunks)
+    outarray = OffsetArray(aout,targetinds...) 
+    for (_,(vs,vt)) in inds
+        i1,i2 = extrema(vs)
+        bbr = map(Colon(),i1.I,i2.I)
+        data = OffsetArray(source.ar.data[bbr...],bbr...)
+        outarray[vt] = data[vs]
+    end
 end
