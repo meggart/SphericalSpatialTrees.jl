@@ -1,6 +1,6 @@
 using GeometryOps.UnitSpherical: UnitSphereFromGeographic, spherical_distance, GeographicFromUnitSphere
 
-using DGGS.NativeISEA: ISEA5, ISEA10, ISEA20
+using SphericalSpatialTrees.NativeISEA: ISEA5, ISEA10, ISEA20
 @testset "Native implementation" begin
     for isea in [ISEA5(), ISEA10(), ISEA20()]
         lon_range = -180.0:1:180.0

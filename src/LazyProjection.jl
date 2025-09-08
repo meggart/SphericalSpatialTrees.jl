@@ -4,6 +4,7 @@ import GeometryOps.SpatialTreeInterface: do_dual_query
 using DiskArrays: AbstractDiskArray, findchunk, DiskArrays
 using OffsetArrays: OffsetArray
 using ProgressMeter
+using Distributed: pmap
 
 #Some helper functions to detect the bounds of an area from their centers. 
 # This needs much better integration with DD
@@ -99,7 +100,7 @@ end
 
 function reproject!(target_array,source,target)
     #this assumes there are only x and y axis
-    lazyarray = SST.LazyProjectedDiskArray(source,target)
+    lazyarray = LazyProjectedDiskArray(source,target)
     targetchunks = eachchunk(target_array)
     @showprogress pmap(targetchunks) do targetchunk
         target_array.data[targetchunk...] = lazyarray[targetchunk...] 

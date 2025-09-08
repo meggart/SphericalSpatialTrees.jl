@@ -4,8 +4,10 @@ authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 version = "1.0.0-DEV"
 
 [deps]
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -16,8 +18,10 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
+CoordinateTransformations = "0.6.4"
 DimensionalData = "0.29.23"
 DiskArrays = "0.4.15"
+Distributed = "1.11.0"
 GeometryOps = "0.1.16"
 LinearAlgebra = "1.11.0"
 Rotations = "1.7.1"

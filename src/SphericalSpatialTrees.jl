@@ -85,7 +85,11 @@ rootnode(t::RegularGridTree) = TreeNode(t, TreeIndex((1, length(t.x)), (1, lengt
 extent(node::TreeNode) = extent(node.grid, node.index.x[1], node.index.x[2], node.index.y[1], node.index.y[2])
 isleaf(node::TreeNode) = _isone(node.index.x) && _isone(node.index.y)
 node_extent(node::TreeNode) = circle_from_extent_1(extent(node), node.grid.trans)
-child_indices_extents(tree::TreeNode) = ((linind(tree), circle_from_extent_1(extent(tree), tree.grid.trans)),)
+function child_indices_extents(tree::TreeNode) 
+    li = linind(tree)
+    circ = circle_from_extent_1(extent(tree), tree.grid.trans)
+    ((li, circ) ,)
+end
 nleaf(t::RegularGridTree) = (length(t.x)-1)*(length(t.y)-1)
 
 function circle_from_extent_1(ex, trans)
@@ -161,6 +165,7 @@ function find_nearest(tree, point)
     end
     cur[]
 end
+
 
 sanitize_predicate(pred::SphericalCap) = Base.Fix1(_intersects, pred)
 

@@ -1,7 +1,5 @@
-using SphericalSpatialTrees: RegularGridTree, TreeNode, nchild, getchild, rootnode, extent, isleaf, node_extent, 
-    linind
 using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects
-using .NativeISEA: ISEA10, ISEA, InvISEA10
+using .NativeISEA: ISEA10, ISEA, RotateISEA, InvRotateISEA, PickPlane
 using StaticArrays: @SVector
 using YAXArrays: YAXArray, setchunks, Dataset, savedataset
 using FillArrays: Fill
@@ -16,7 +14,7 @@ ISEACircleTree(isea::ISEA,resolution::Int) = ISEACircleTree(isea,resolution, ran
 ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(),resolution)
 gridsize(t::ISEACircleTree) = (2^t.resolution, 2^t.resolution, 10)
 Base.ndims(t::ISEACircleTree) = 3
-get_projection(t::ISEACircleTree) = ISEA10(t.isea,Val(true))
+get_projection(t::ISEACircleTree) = RotateISEA() ∘ ISEA10(t.isea)
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
 rootnode(t::ISEACircleTree) = t
@@ -24,35 +22,38 @@ extent(::ISEACircleTree) = SphericalCap(UnitSphereFromGeographic()((0.0,0.0)),π
 isleaf(::ISEACircleTree) = false
 node_extent(t::ISEACircleTree) = extent(t)
 nleaf(t::ISEACircleTree) = 10*2^(2*t.resolution)
-struct _RotatedISEAtoUnitSphere{T}
-    i::Int
-    t::T
-end
-function (r::_RotatedISEAtoUnitSphere)((x,y))
-    #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
-    r.t((r.i, x, y))
-end
-# _RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
 
 
-struct _RotatedISEAtolatlon{T}
-    i::Int
-    t::T
-end
-function (r::_RotatedISEAtolatlon)((x,y))
-    #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
-    res = r.t((r.i, x, y))
-    GeographicFromUnitSphere()(res)
-end
-_RotatedISEAtolatlon(i::Int) = _RotatedISEAtolatlon(i, inv(ISEA10()))
+# struct _RotatedISEAtoUnitSphere{T}
+#     i::Int
+#     t::T
+# end
+# function (r::_RotatedISEAtoUnitSphere)((x,y))
+#     #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
+#     r.t((r.i, x, y))
+# end
+# # _RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
+
+
+# struct _RotatedISEAtolatlon{T}
+#     i::Int
+#     t::T
+# end
+# function (r::_RotatedISEAtolatlon)((x,y))
+#     #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
+#     res = r.t((r.i, x, y))
+#     GeographicFromUnitSphere()(res)
+# end
+# _RotatedISEAtolatlon(i::Int) = _RotatedISEAtolatlon(i, inv(ISEA10()))
 struct ISEATag
     resolution::Int
+    plane::Int
 end
 function linind(tag::ISEATag, t::TreeNode)
     #@show t.index.x[1]-1,t.index.y[1]-1,t.grid.trans.i-1,tag.resolution
     # @assert t.index.x[1]==t.index.x[2]-1
     # @assert t.index.y[1]==t.index.y[2]-1
-    LinearIndices((2^tag.resolution,2^tag.resolution,10))[t.index.x[1], t.index.y[1], t.grid.trans.i]
+    LinearIndices((2^tag.resolution,2^tag.resolution,10))[t.index.x[1], t.index.y[1], tag.plane]
     #Int(Cell10(t.index.x[1] - 1, t.index.y[1] - 1, t.grid.trans.i - 1, tag.resolution))
     #t.index.x[1] + (t.index.y[1]-1)*(length(t.grid.x)-1)
 end
@@ -63,8 +64,8 @@ end
 
 function getchild(t::ISEACircleTree, i)
     xr,yr = get_xyranges(t)
-    t1 = _RotatedISEAtoUnitSphere(i,InvISEA10(t.isea,Val(true)))
-    rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution)))
+    t1 = inv(ISEA10(t.isea)) ∘ InvRotateISEA() ∘ PickPlane(i)
+    rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution,i)))
 end
 
 function lin_to_cart(i::Integer,t::ISEACircleTree)
