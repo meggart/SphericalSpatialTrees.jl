@@ -49,6 +49,17 @@ function compute_connected_chunks(source::ProjectionSource,target::ProjectionTar
     connected_chunks
 end
 
+function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
+
+    circle = get_gridextent(target.tree, targetinds...)
+    pred = Base.Fix1(_intersects, circle)
+    res = Int[]
+    do_query(pred, rootnode(source.chunktree)) do n
+        push!(res, n)
+    end
+    res
+end
+
 struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
     source::ProjectionSource
     target::ProjectionTarget
@@ -59,12 +70,12 @@ end
 Base.size(a::LazyProjectedDiskArray) = gridsize(a.target.tree)
 Base.ndims(a::LazyProjectedDiskArray) = ndims(a.target.tree)
 
-function compute_nearest_per_chunk(targetinds, targettree, isourcetrans,lookups,chunks)
+function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{<:Any,Nsource}}, chunks, index_arraybuffer) where Nsource
     alllinind = LinearIndices(gridsize(targettree))
-    Ntarget = ndims(targettree)
-    Nsource = length(lookups)
-    sourced = Dict{CartesianIndex{Nsource},Tuple{Vector{CartesianIndex{Nsource}},Vector{CartesianIndex{Ntarget}}}}()
-    for targetindex in CartesianIndices(targetinds)
+    #Ntarget = ndims(targettree)
+    inner_indexarray = fill((zero(CartesianIndex{Nsource}), zero(CartesianIndex{Nsource})), length.(targetinds)...)
+    indexarray = OffsetArray(inner_indexarray, targetinds...)
+    Threads.@threads for targetindex in CartesianIndices(targetinds)
         ind = alllinind[targetindex]
         unit = index_to_unitsphere(ind, targettree)
         sourcecoords = isourcetrans(unit)
@@ -73,36 +84,66 @@ function compute_nearest_per_chunk(targetinds, targettree, isourcetrans,lookups,
         end
         chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
         cI = CartesianIndex(chunkindices)
-        vs,vt = get!(()->(CartesianIndex{Nsource}[],CartesianIndex{Ntarget}[]),sourced,cI)
-        push!(vt,targetindex)
-        push!(vs,CartesianIndex(sourceindices))
+        indexarray[targetindex] = (cI, CartesianIndex(sourceindices))
     end
-    sourced
+    cartinds = first.(unique(first, indexarray))
+    if length(cartinds) > length(index_arraybuffer)
+        error("Too many connected chunks")
+    end
+    mybuffer = view(index_arraybuffer, 1:length(cartinds))
+    foreach(mybuffer) do b
+        empty!(first(b))
+        empty!(last(b))
+    end
+    for itarget in CartesianIndices(indexarray)
+        chunknum, iel = indexarray[itarget]
+        ichunk = findfirst(==(chunknum), cartinds)
+        vt, vs = index_arraybuffer[ichunk]
+        push!(vt, itarget)
+        push!(vs, iel)
+    end
+    return mybuffer
 end
 
-
-function DiskArrays.readblock!(a::LazyProjectedDiskArray,aout,targetinds::AbstractUnitRange...)
+function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffer)
     source = a.source
     target = a.target
     targettree = target.tree
     isourcetrans = Base.inv(get_projection(source.tree))
     lookups = DD.dims(source.lookups,source.chunks)
     chunks = source.chunks
-    inds = compute_nearest_per_chunk(targetinds, targettree, isourcetrans,lookups,chunks)
-    outarray = OffsetArray(aout,targetinds...) 
-    for (_,(vs,vt)) in inds
+    compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
+end
+
+function copydata(outarray, inds, source)
+    for (vt, vs) in inds
         i1,i2 = extrema(vs)
         bbr = map(Colon(),i1.I,i2.I)
-        data = OffsetArray(source.ar.data[bbr...],bbr...)
+        data = OffsetArray(source[bbr...], bbr...)
         outarray[vt] = data[vs]
     end
+end
+
+function make_indexbuffer(sourcetree, targettree, N=50)
+    Nsource = ndims(sourcetree)
+    Ntarget = ndims(targettree)
+    [(CartesianIndex{Ntarget}[], CartesianIndex{Nsource}[]) for _ in 1:N]
+end
+
+function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
+    outarray = OffsetArray(aout, targetinds...)
+    inds = compute_indices(a, targetinds, index_arraybuffer)
+    copydata(outarray, inds, a.source.ar.data)
 end
 
 function reproject!(target_array,source,target)
     #this assumes there are only x and y axis
     lazyarray = LazyProjectedDiskArray(source,target)
     targetchunks = eachchunk(target_array)
-    @showprogress pmap(targetchunks) do targetchunk
-        target_array.data[targetchunk...] = lazyarray[targetchunk...] 
+    index_arraybuffer = make_indexbuffer(source.tree, target.tree)
+    aout = zeros(eltype(target_array.data), length.(first(targetchunks))...)
+    @showprogress for targetchunk in targetchunks
+        DiskArrays.readblock!(lazyarray, aout, targetchunk...; index_arraybuffer)
+        target_array.data[targetchunk...] = aout
     end
 end

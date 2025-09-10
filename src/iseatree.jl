@@ -23,39 +23,19 @@ isleaf(::ISEACircleTree) = false
 node_extent(t::ISEACircleTree) = extent(t)
 nleaf(t::ISEACircleTree) = 10*2^(2*t.resolution)
 
+function get_gridextent(t::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
+    n = only(nr)
+    c = getchild(t, n)
+    t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
+    node_extent(t)
+end
 
-# struct _RotatedISEAtoUnitSphere{T}
-#     i::Int
-#     t::T
-# end
-# function (r::_RotatedISEAtoUnitSphere)((x,y))
-#     #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
-#     r.t((r.i, x, y))
-# end
-# # _RotatedISEAtoUnitSphere(i::Int) = _RotatedISEAtoUnitSphere(i, inv(ISEA10()))
-
-
-# struct _RotatedISEAtolatlon{T}
-#     i::Int
-#     t::T
-# end
-# function (r::_RotatedISEAtolatlon)((x,y))
-#     #x, y = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
-#     res = r.t((r.i, x, y))
-#     GeographicFromUnitSphere()(res)
-# end
-# _RotatedISEAtolatlon(i::Int) = _RotatedISEAtolatlon(i, inv(ISEA10()))
 struct ISEATag
     resolution::Int
     plane::Int
 end
 function linind(tag::ISEATag, t::TreeNode)
-    #@show t.index.x[1]-1,t.index.y[1]-1,t.grid.trans.i-1,tag.resolution
-    # @assert t.index.x[1]==t.index.x[2]-1
-    # @assert t.index.y[1]==t.index.y[2]-1
-    LinearIndices((2^tag.resolution,2^tag.resolution,10))[t.index.x[1], t.index.y[1], tag.plane]
-    #Int(Cell10(t.index.x[1] - 1, t.index.y[1] - 1, t.grid.trans.i - 1, tag.resolution))
-    #t.index.x[1] + (t.index.y[1]-1)*(length(t.grid.x)-1)
+    LinearIndices((2^tag.resolution, 2^tag.resolution, 10))[t.index.x[1], t.index.y[1], tag.plane]
 end
 
 function get_xyranges(t::ISEACircleTree)
@@ -82,10 +62,6 @@ function index_to_unitsphere(i::Integer,t::ISEACircleTree)
 end
 
 
-function index_to_lonlat(i::Integer,t)
-    uind = index_to_unitsphere(i,t)
-    GeographicFromUnitSphere()(uind)
-end
 
 """
     get_subtree(source_tree, target_chunk, target_tree)
