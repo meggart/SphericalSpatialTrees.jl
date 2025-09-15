@@ -26,7 +26,7 @@ struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}
     lookups::L
     chunks::C
 end
-function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (:X,:Y))
+function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (DD.XDim,DD.YDim))
     tree = RegularGridTree(ar,spatial_dims)
     lookups = map(DD.format,DD.dims(ar,spatial_dims))
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
