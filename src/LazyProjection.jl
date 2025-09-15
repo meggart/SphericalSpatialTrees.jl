@@ -1,6 +1,6 @@
 import DiskArrays: eachchunk
 import DimensionalData as DD
-import GeometryOps.SpatialTreeInterface: do_dual_query
+import GeometryOps.SpatialTreeInterface: dual_depth_first_search
 using DiskArrays: AbstractDiskArray, findchunk, DiskArrays
 using OffsetArrays: OffsetArray
 using ProgressMeter
@@ -26,7 +26,7 @@ struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}
     lookups::L
     chunks::C
 end
-function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (:X,:Y))
+function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (DD.XDim,DD.YDim))
     tree = RegularGridTree(ar,spatial_dims)
     lookups = map(DD.format,DD.dims(ar,spatial_dims))
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
@@ -43,7 +43,7 @@ function compute_connected_chunks(source::ProjectionSource,target::ProjectionTar
     
     connected_chunks = [Int[] for _ in 1:nleaf(target.chunktree)]
 
-    do_dual_query(_intersects, rootnode(target.chunktree), rootnode(source.chunktree)) do n1, n2
+    dual_depth_first_search(_intersects, rootnode(target.chunktree), rootnode(source.chunktree)) do n1, n2
         push!(connected_chunks[n1], n2)
     end
     connected_chunks
@@ -54,7 +54,7 @@ function compute_connected_chunks(source::ProjectionSource, target::ProjectionTa
     circle = get_gridextent(target.tree, targetinds...)
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
-    do_query(pred, rootnode(source.chunktree)) do n
+    depth_first_search(pred, rootnode(source.chunktree)) do n
         push!(res, n)
     end
     res

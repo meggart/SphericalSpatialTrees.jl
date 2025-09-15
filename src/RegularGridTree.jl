@@ -1,7 +1,7 @@
 using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphereFromGeographic,
     spherical_distance, SphericalCap, UnitSphericalPoint
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
-    query, sanitize_predicate, node_extent, do_query
+    query, sanitize_predicate, node_extent, depth_first_search
 import GeometryOps: extent
 import GeometryOps.Extents: Extent, bounds
 import LinearAlgebra: norm
@@ -31,7 +31,7 @@ RegularGridTree(x, y, transform=UnitSphereFromGeographic()) = RegularGridTree(x,
 Convenience constructor to create a unitspherical spatial search tree from an AbstractDimArray. The spatial dimension
 names can be passed as a tuple of symbols. Tries to guess cell boundaries. 
 """
-function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=DD.dims(ar, (:X, :Y)); transform=UnitSphereFromGeographic())
+function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=DD.dims(ar, (DD.XDim, DD.YDim)); transform=UnitSphereFromGeographic())
     xr,yr = map(spatial_dims) do d
         boundrangefromcenters(DD.dims(ar,d))
     end
