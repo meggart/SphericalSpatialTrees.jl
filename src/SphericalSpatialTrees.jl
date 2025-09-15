@@ -25,7 +25,7 @@ function find_nearest(tree, point)
     pred = p -> begin
         _contains(p, point3)
     end
-    do_query(pred, rootnode(tree)) do i
+    depth_first_search(pred, rootnode(tree)) do i
         cur_min = first(cur[])
         dist = norm(point3 - index_to_unitsphere(i, tree))
         if dist < cur_min
@@ -37,8 +37,5 @@ end
 
 
 sanitize_predicate(pred::SphericalCap) = Base.Fix1(_intersects, pred)
-
-
-
 
 end

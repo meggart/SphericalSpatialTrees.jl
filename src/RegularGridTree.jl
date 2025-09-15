@@ -1,7 +1,7 @@
 using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphereFromGeographic,
     spherical_distance, SphericalCap, UnitSphericalPoint
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
-    query, sanitize_predicate, node_extent, do_query
+    query, sanitize_predicate, node_extent, depth_first_search
 import GeometryOps: extent
 import GeometryOps.Extents: Extent, bounds
 import LinearAlgebra: norm
