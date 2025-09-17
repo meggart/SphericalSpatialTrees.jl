@@ -61,6 +61,20 @@ function index_to_unitsphere(i::Integer,t::ISEACircleTree)
     getchild(t,k).grid.trans((x, y))
 end
 
+function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)
+    i,j,k = lin_to_cart(i,t)
+    index_to_polygon_unitsphere(CartesianIndex(i,j,k),t)
+end
+
+function index_to_polygon_unitsphere(i::CartesianIndex,t::ISEACircleTree)
+    xr,yr = get_xyranges(t)
+    i,j,k = i.I
+    poly = #=@SVector =#[(xr[i], yr[j]), (xr[i+1], yr[j]), (xr[i+1], yr[j+1]), (xr[i], yr[j+1]), (xr[i], yr[j])]
+    # Get the child face at index `k`, 
+    # that has a transformation back to the unit sphere.
+    getchild(t,k).grid.trans.(poly)
+end
+
 
 
 """
