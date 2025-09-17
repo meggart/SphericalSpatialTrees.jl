@@ -1,7 +1,7 @@
 name = "SphericalSpatialTrees"
 uuid = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
-authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 version = "1.0.0-DEV"
+authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 
 [deps]
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
@@ -9,6 +9,8 @@ DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
+GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
+GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
@@ -22,6 +24,8 @@ CoordinateTransformations = "0.6.4"
 DimensionalData = "0.29.23"
 DiskArrays = "0.4.15"
 Distributed = "1.11.0"
+GeoFormatTypes = "0.4.4"
+GeoInterface = "1.5.0"
 GeometryOps = "0.1.28"
 LinearAlgebra = "1.11.0"
 Rotations = "1.7.1"
