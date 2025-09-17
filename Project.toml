@@ -1,6 +1,6 @@
 name = "SphericalSpatialTrees"
 uuid = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
-version = "1.0.0-DEV"
+version = "0.1.0-DEV"
 authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 
 [deps]
@@ -20,15 +20,15 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
-CoordinateTransformations = "0.6.4"
-DimensionalData = "0.29.23"
-DiskArrays = "0.4.15"
-Distributed = "1.11.0"
-GeoFormatTypes = "0.4.4"
-GeoInterface = "1.5.0"
+CoordinateTransformations = "0.6"
+DimensionalData = "0.29"
+DiskArrays = "0.4.16"
+Distributed = "1"
+GeoFormatTypes = "0.4"
+GeoInterface = "1.5"
 GeometryOps = "0.1.28"
-LinearAlgebra = "1.11.0"
-Rotations = "1.7.1"
+LinearAlgebra = "1"
+Rotations = "1.7"
 StaticArrays = "1.9"
 julia = "1.10"
 
