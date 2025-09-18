@@ -23,6 +23,11 @@ isleaf(::ISEACircleTree) = false
 node_extent(t::ISEACircleTree) = extent(t)
 nleaf(t::ISEACircleTree) = 10*2^(2*t.resolution)
 
+function Base.show(io::IO, tree::ISEACircleTree)
+    elements = 10 * 4^tree.resolution
+    print(io, "ISEACircleTree(resolution=$(tree.resolution), elements=$elements)")
+end
+
 function get_gridextent(t::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
     n = only(nr)
     c = getchild(t, n)

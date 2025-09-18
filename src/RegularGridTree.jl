@@ -16,6 +16,10 @@ struct RegularGridTree{DX,DY,T,S}
 end
 Base.ndims(t::RegularGridTree) = 2
 get_projection(t::RegularGridTree) = t.trans
+
+function Base.show(io::IO, tree::RegularGridTree)
+    print(io, "RegularGridTree($(length(tree.x))×$(length(tree.y)))")
+end
 """
     RegularGridTree(x, y, transform=UnitSphereFromGeographic())
 
