@@ -1,7 +1,7 @@
 import DiskArrays: eachchunk
 import DimensionalData as DD
 import GeometryOps.SpatialTreeInterface: dual_depth_first_search
-using DiskArrays: AbstractDiskArray, findchunk, DiskArrays
+using DiskArrays: AbstractDiskArray, findchunk, DiskArrays, ChunkIndex
 using OffsetArrays: OffsetArray
 using ProgressMeter
 using Distributed: pmap
@@ -39,6 +39,15 @@ function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (DD.XDim,
     ProjectionSource(ar,tree,chunktree,lookups,chunks)
 end
 
+#Compute indices given a chunk index for the high-resolution tree
+function indices_from_chunk(s::ProjectionSource{<:Any,<:RegularGridTree}, target_chunk)
+    inds = index_to_cartesian(target_chunk, s.chunktree)
+    chunkrange = map(getindex,s.chunks,inds)
+    map(chunkrange) do cr
+        Colon()(extrema(cr)...)
+    end
+end
+
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     
     connected_chunks = [Int[] for _ in 1:nleaf(target.chunktree)]
@@ -51,13 +60,38 @@ end
 
 function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
 
+    target_smalltree = get_subtree(target.tree,targetinds)
     circle = get_gridextent(target.tree, targetinds...)
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
     depth_first_search(pred, rootnode(source.chunktree)) do n
-        push!(res, n)
+        test_intersect_highres(source,target_smalltree, n) && push!(res, n)
     end
     res
+end
+
+function test_intersect_highres(source,target_smalltree,sourcechunk)
+    ssmallinds = indices_from_chunk(source, sourcechunk)
+    source_smalltree = get_subtree(source.tree,ssmallinds)
+    any_intersect(target_smalltree, source_smalltree)
+end
+
+function load_sourcechunks(source,chunks)
+    input_chunks = map(chunks) do c
+        chunk_cartindex = CartesianIndex(index_to_cartesian(c,source.chunktree))
+        sourceindices = indices_from_chunk(source,c)
+        aout = source.ar.data[sourceindices...]
+        data = OffsetArray(aout,sourceindices...)
+        chunk_cartindex => data
+    end
+    i1,i2 = extrema(first,input_chunks)
+    s = (i2.-i1+oneunit(i1)).I
+    et = typeof(last(first(input_chunks)))
+    sourcearrays = OffsetArray(Matrix{et}(undef,s...),(i1-oneunit(i1)).I...)
+    for (i,a) in input_chunks
+        sourcearrays[i]=a
+    end
+    sourcearrays
 end
 
 struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
@@ -115,13 +149,21 @@ function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffe
     compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
 end
 
-function copydata(outarray, inds, source)
-    for (vt, vs) in inds
-        i1,i2 = extrema(vs)
-        bbr = map(Colon(),i1.I,i2.I)
-        data = OffsetArray(source[bbr...], bbr...)
-        outarray[vt] = data[vs]
+function copydata!(outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
+    alllinind = LinearIndices(gridsize(targettree))
+    
+    Threads.@threads for targetindex in CartesianIndices(targetinds)
+        ind = alllinind[targetindex]
+        unit = index_to_unitsphere(ind, targettree)
+        sourcecoords = isourcetrans(unit)
+        sourceindices = map(sourcecoords,lookups) do coord,look
+            DD.selectindices(look, DD.Near(coord))
+        end
+        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
+        cI = CartesianIndex(chunkindices)
+        outar[targetindex] = sourcearrays[cI][sourceindices...]
     end
+    outar
 end
 
 function make_indexbuffer(sourcetree, targettree, N=50)
@@ -132,8 +174,10 @@ end
 
 function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
     outarray = OffsetArray(aout, targetinds...)
-    inds = compute_indices(a, targetinds, index_arraybuffer)
-    copydata(outarray, inds, a.source.ar.data)
+    chunks = compute_connected_chunks(a.source, a.target,targetinds)
+    sourcearrays = load_sourcechunks(a.source,chunks)
+    isourcetrans = inv(get_projection(a.source.tree))
+    copydata!(outarray, targetinds,sourcearrays, a.target.tree, isourcetrans, a.source.lookups,a.source.chunks)
 end
 
 function reproject!(target_array,source,target)

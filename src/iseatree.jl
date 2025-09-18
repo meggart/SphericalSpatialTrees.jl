@@ -42,6 +42,8 @@ function get_xyranges(t::ISEACircleTree)
     t.xr,t.yr
 end
 
+
+getchild(t::ISEACircleTree, i::AbstractVector) = getchild(t,only(i))
 function getchild(t::ISEACircleTree, i)
     xr,yr = get_xyranges(t)
     t1 = inv(ISEA10(t.isea)) ∘ InvRotateISEA() ∘ PickPlane(i)
@@ -76,37 +78,21 @@ function index_to_polygon_unitsphere(i::CartesianIndex,t::ISEACircleTree)
 end
 
 
-
 """
     get_subtree(source_tree, target_chunk, target_tree)
 
 Expands the target chunk to to the full subtree containing all grid cells at the target resolution.
 """
-function get_subtree(source_tree::ISEACircleTree, target_chunk, target_tree::ISEACircleTree)
-    ix, iy, n = lin_to_cart(target_chunk + 1, source_tree)
-    resolution_difference = target_tree.resolution - source_tree.resolution
-    fac = 2^resolution_difference
-    ix1 = (ix - 1) * fac + 1
-    iy1 = (iy - 1) * fac + 1
-    ix2 = ix1 + fac
-    iy2 = iy1 + fac
-    gridtree = getchild(target_tree, n).grid
-    xsub = gridtree.x[ix1:ix2]
-    ysub = gridtree.y[iy1:iy2]
+function get_subtree(tree::ISEACircleTree, target_indices)
+    ix,iy,n = target_indices
+    gridtree = getchild(tree, n).grid
+    xsub = gridtree.x[ix]
+    ysub = gridtree.y[iy]
     trsmall = RegularGridTree(xsub,ysub,gridtree.trans,gridtree.tag)
     rootnode(trsmall)
 end
 
-function get_subindices(source_tree::ISEACircleTree, target_chunk, target_tree::ISEACircleTree)
-    ix, iy, n = lin_to_cart(target_chunk, source_tree)
-    resolution_difference = target_tree.resolution - source_tree.resolution
-    fac = 2^resolution_difference
-    ix1 = (ix - 1) * fac + 1
-    iy1 = (iy - 1) * fac + 1
-    ix2 = ix1 + fac -1 
-    iy2 = iy1 + fac -1
-    ix1:ix2, iy1:iy2, n
-end
+
 
 struct ProjectionTarget{T,CT}
     tree::T
@@ -132,3 +118,21 @@ function create_dataset(target::ProjectionTarget{<:ISEACircleTree},
     ds = Dataset(;properties=datasetmeta,p...)
     ds = savedataset(ds,path = path, skeleton=true, overwrite=true)
 end
+
+
+# """
+#     indices_from_chunk(s::ISEASourceOrTarget, target_indices)
+
+# For a given index from the chunk tree, returns the cartesian index ranges 
+# in the high-resolution tree
+# """
+# function indices_from_chunk(s::ISEASource, target_chunk)
+#     ix, iy, n = lin_to_cart(target_chunk + 1, s.chunktree)
+#     resolution_difference = s.tree.resolution - s.chunktree.resolution
+#     fac = 2^resolution_difference
+#     ix1 = (ix - 1) * fac + 1
+#     iy1 = (iy - 1) * fac + 1
+#     ix2 = ix1 + fac
+#     iy2 = iy1 + fac
+#     return ix1:ix2, iy1:iy2, n
+# end
