@@ -26,7 +26,17 @@ struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}
     lookups::L
     chunks::C
 end
-function ProjectionSource(::Type{<:RegularGridTree}, ar,spatial_dims = (DD.XDim,DD.YDim))
+
+function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionSource)
+    T = eltype(ps.ar)
+    dims = size(ps.ar)
+    dims_str = join(dims, "×")
+    print(io, "ProjectionSource{$T}($dims_str, ")
+    show(io, ps.tree)
+    print(io, ")")
+end
+
+function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims = (DD.XDim,DD.YDim))
     tree = RegularGridTree(ar,spatial_dims)
     lookups = map(DD.format,DD.dims(ar,spatial_dims))
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
@@ -86,6 +96,12 @@ function LazyProjectedDiskArray(source,target)
 end
 Base.size(a::LazyProjectedDiskArray) = gridsize(a.target.tree)
 Base.ndims(a::LazyProjectedDiskArray) = ndims(a.target.tree)
+
+function Base.show(io::IO, ::MIME"text/plain", lpda::LazyProjectedDiskArray{T}) where T
+    dims = size(lpda)
+    dims_str = join(dims, "×")
+    print(io, "$dims_str LazyProjectedDiskArray{$T}")
+end
 
 function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{<:Any,Nsource}}, chunks, index_arraybuffer) where Nsource
     alllinind = LinearIndices(gridsize(targettree))

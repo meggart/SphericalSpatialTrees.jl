@@ -21,6 +21,10 @@ function get_gridextent(t::RegularGridTree, xr::AbstractUnitRange, yr::AbstractU
     node_extent(t)
 end
 get_projection(t::RegularGridTree) = t.trans
+
+function Base.show(io::IO, tree::RegularGridTree)
+    print(io, "RegularGridTree($(length(tree.x))×$(length(tree.y)))")
+end
 """
     RegularGridTree(x, y, transform=UnitSphereFromGeographic())
 
