@@ -2,7 +2,7 @@ module SphericalSpatialTrees
 
 import GeoFormatTypes as GFT, GeometryOps as GO, GeoInterface as GI
 
-export RegularGridTree
+export RegularGridTree, ISEACircleTree, ProjectionSource
 
 
 #Native implementation of isea projection
