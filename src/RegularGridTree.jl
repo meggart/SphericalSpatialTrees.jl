@@ -23,7 +23,25 @@ end
 get_projection(t::RegularGridTree) = t.trans
 
 function Base.show(io::IO, tree::RegularGridTree)
-    print(io, "RegularGridTree($(length(tree.x))×$(length(tree.y)))")
+    # Check if this is a compact display (when used within other show methods)
+    compact = get(io, :compact, false)
+    
+    if compact
+        # Compact format for use within other show methods
+        print(io, "RegularGridTree($(length(tree.x))×$(length(tree.y)))")
+    else
+        # Full format with copy-pastable constructor on first line
+        print(io, "RegularGridTree($(length(tree.x))×$(length(tree.y)) array, chunksize)")
+        
+        # Additional lines in cyan color with supplementary information
+        if get(io, :color, false)
+            print(io, "\n\e[36m")  # Start cyan color
+            print(io, "dimensions: $(length(tree.x)-1)×$(length(tree.y)-1)")
+            print(io, "\e[0m")     # Reset color
+        else
+            print(io, "\ndimensions: $(length(tree.x)-1)×$(length(tree.y)-1)")
+        end
+    end
 end
 """
     RegularGridTree(x, y, transform=UnitSphereFromGeographic())

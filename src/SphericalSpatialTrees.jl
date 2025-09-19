@@ -2,7 +2,6 @@ module SphericalSpatialTrees
 
 import GeoFormatTypes as GFT, GeometryOps as GO, GeoInterface as GI
 import GeometryOps.LoopStateMachine: Action
-export RegularGridTree
 
 
 #Native implementation of isea projection

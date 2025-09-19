@@ -22,8 +22,14 @@ import DimensionalData as DD
             show(io, MIME"text/plain"(), ps)
             output = String(take!(io))
 
-            expected = "ProjectionSource{Float64}(360×180, RegularGridTree(361×181))"
-            @test output == expected
+            # Split output into lines to test the new format
+            lines = split(output, '\n')
+            
+            # First line should be copy-pastable tree constructor
+            @test lines[1] == "RegularGridTree(361×181)"
+            
+            # Second line should be ProjectionSource info in cyan (test content, not color)
+            @test lines[2] == "ProjectionSource{Float64}(360×180)"
 
             # Verify conciseness - should be much shorter than default
             io_default = IOBuffer()
@@ -182,10 +188,10 @@ import DimensionalData as DD
         @testset "RegularGridTree show method consistency" begin
             # Test various grid sizes
             test_cases = [
-                (1:10, 1:5, "RegularGridTree(10×5)"),
-                (1:100, 1:50, "RegularGridTree(100×50)"),
-                (range(0, 1, length=1001), range(0, 1, length=501), "RegularGridTree(1001×501)"),
-                (1:2, 1:2, "RegularGridTree(2×2)")  # Edge case
+                (1:10, 1:5, "RegularGridTree(10×5 array, chunksize)\ndimensions: 9×4"),
+                (1:100, 1:50, "RegularGridTree(100×50 array, chunksize)\ndimensions: 99×49"),
+                (range(0, 1, length=1001), range(0, 1, length=501), "RegularGridTree(1001×501 array, chunksize)\ndimensions: 1000×500"),
+                (1:2, 1:2, "RegularGridTree(2×2 array, chunksize)\ndimensions: 1×1")  # Edge case
             ]
 
             for (x, y, expected) in test_cases
@@ -197,14 +203,37 @@ import DimensionalData as DD
             end
         end
 
+        @testset "RegularGridTree copy-pastable constructor format" begin
+            # Test that first line matches copy-pastable constructor pattern
+            x = range(-180, 180, length=361)
+            y = range(-90, 90, length=181)
+            tree = SST.RegularGridTree(x, y)
+            
+            io = IOBuffer()
+            show(io, tree)
+            output = String(take!(io))
+            
+            # Split output into lines
+            lines = split(output, '\n')
+            
+            # First line should be copy-pastable constructor format
+            @test lines[1] == "RegularGridTree(361×181 array, chunksize)"
+            
+            # Second line should contain dimensions info
+            @test lines[2] == "dimensions: 360×180"
+            
+            # Test that first line follows the expected pattern
+            @test occursin(r"RegularGridTree\(\d+×\d+ array, chunksize\)", lines[1])
+        end
+
         @testset "ISEACircleTree show method consistency" begin
-            # Test various resolutions
+            # Test various resolutions with new format
             test_cases = [
-                (0, "ISEACircleTree(resolution=0, elements=10)"),
-                (2, "ISEACircleTree(resolution=2, elements=160)"),
-                (4, "ISEACircleTree(resolution=4, elements=2560)"),
-                (6, "ISEACircleTree(resolution=6, elements=40960)"),
-                (8, "ISEACircleTree(resolution=8, elements=655360)")
+                (0, "10-leaf ISEACircleTree(0)"),
+                (2, "160-leaf ISEACircleTree(2)"),
+                (4, "2560-leaf ISEACircleTree(4)"),
+                (6, "40960-leaf ISEACircleTree(6)"),
+                (8, "655360-leaf ISEACircleTree(8)")
             ]
 
             for (resolution, expected) in test_cases
@@ -213,6 +242,37 @@ import DimensionalData as DD
                 show(io, tree)
                 output = String(take!(io))
                 @test output == expected
+            end
+        end
+
+        @testset "ISEACircleTree copy-pastable constructor format" begin
+            # Test that output matches the new format pattern
+            tree = SST.ISEACircleTree(4)
+            
+            io = IOBuffer()
+            show(io, tree)
+            output = String(take!(io))
+            
+            # Should be single line with format "$(nelem)-leaf ISEACircleTree(n)"
+            @test output == "2560-leaf ISEACircleTree(4)"
+            
+            # Test that output follows the expected pattern
+            @test occursin(r"\d+-leaf ISEACircleTree\(\d+\)", output)
+            
+            # Test different resolutions
+            for resolution in [0, 1, 2, 5, 7]
+                tree = SST.ISEACircleTree(resolution)
+                io = IOBuffer()
+                show(io, tree)
+                output = String(take!(io))
+                
+                # Should match the pattern with correct element count
+                expected_elements = 10 * 4^resolution
+                expected_output = "$(expected_elements)-leaf ISEACircleTree($resolution)"
+                @test output == expected_output
+                
+                # Verify pattern match
+                @test occursin(r"\d+-leaf ISEACircleTree\(\d+\)", output)
             end
         end
 
