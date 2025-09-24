@@ -18,7 +18,6 @@ include("LazyProjection/LazyProjection.jl")
 
 function index_to_lonlat(i::Integer, t)
     uind = index_to_unitsphere(i, t)
-    @show uind
     GeographicFromUnitSphere()(uind)
 end
 

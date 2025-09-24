@@ -2,13 +2,19 @@ function copy_sequential(outarray, inds, source)
     for (vt, vs) in inds
         i1,i2 = extrema(vs)
         bbr = map(Colon(),i1.I,i2.I)
-        data = OffsetArray(source[bbr...], bbr...)
+        data = OffsetArray(DD.data(source)[bbr...], bbr...)
         outarray[vt] = data[vs]
     end
 end
 
-function project_sequential(a::LazyProjectedDiskArray,outarray,chunks,isourcetrans,targetinds)
-    indices_per_chunk = precompute_sequential_weights(targetinds, a.target.tree, isourcetrans, a.source.lookups, s.source.chunks, index_arraybuffer)
+function make_indexbuffer(sourcetree, targettree, N=50)
+    Nsource = ndims(sourcetree)
+    Ntarget = ndims(targettree)
+    [(CartesianIndex{Ntarget}[], CartesianIndex{Nsource}[]) for _ in 1:N]
+end
+
+function project_sequential(a::LazyProjectedDiskArray,outarray,chunks,isourcetrans,targetinds; index_arraybuffer=make_indexbuffer(a.source.tree,a.target.tree))
+    indices_per_chunk = precompute_sequential_weights(targetinds, a.target.tree, isourcetrans, a.source.lookups, a.source.chunks, index_arraybuffer)
     copy_sequential(outarray,indices_per_chunk,a.source.ar)
 end
 
