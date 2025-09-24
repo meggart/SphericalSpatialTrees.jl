@@ -15,6 +15,11 @@ struct RegularGridTree{DX,DY,T,S}
     tag::S
 end
 Base.ndims(t::RegularGridTree) = 2
+gridsize(t::RegularGridTree) = (length(t.x)-1,length(t.y)-1)
+function get_gridextent(t::RegularGridTree, xr::AbstractUnitRange, yr::AbstractUnitRange)
+    t = TreeNode(t, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
+    node_extent(t)
+end
 get_projection(t::RegularGridTree) = t.trans
 """
     RegularGridTree(x, y, transform=UnitSphereFromGeographic())
@@ -139,9 +144,10 @@ end
 #     UnitSpherical._merge(cap1, cap2)
 # end
 
-function get_subtree(source_tree::RegularGridTree, target_chunk, target_tree::RegularGridTree, chunksx, chunksy)
-    ix, iy = index_to_cartesian(target_chunk, source_tree)
-    ix1, ix2 = extrema(chunksx[ix])
-    iy1, iy2 = extrema(chunksy[iy])
-    TreeNode(target_tree, TreeIndex((ix1, ix2), (iy1, iy2)))
+
+function get_subtree(tree::RegularGridTree,targetinds)
+    r1,r2 = targetinds
+    ix1,ix2 = first(r1), last(r1)
+    iy1,iy2 = first(r2), last(r2)
+    TreeNode(tree, TreeIndex((ix1, ix2), (iy1, iy2)))
 end

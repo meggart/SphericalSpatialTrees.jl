@@ -1,7 +1,7 @@
 module SphericalSpatialTrees
 
 import GeoFormatTypes as GFT, GeometryOps as GO, GeoInterface as GI
-
+import GeometryOps.LoopStateMachine: Action
 export RegularGridTree
 
 
@@ -12,7 +12,7 @@ include("RegularGridTree.jl")
 #Implementation of a spherical tree for isea grid on 10 diamonds
 include("iseatree.jl")
 #Reprojection code
-include("LazyProjection.jl")
+include("LazyProjection/LazyProjection.jl")
 
 
 
@@ -42,6 +42,18 @@ function find_nearest(tree, point)
         end
     end
     cur[]
+end
+
+function any_intersect(tree1, tree2)
+    r = dual_depth_first_search(_intersects, tree1, tree2) do n1, n2
+        return Action(:full_return,true)
+    end
+    if r === nothing
+        return false
+    else
+        return true
+    end
+
 end
 
 
