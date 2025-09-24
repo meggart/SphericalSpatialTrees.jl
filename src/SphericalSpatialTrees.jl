@@ -12,12 +12,13 @@ include("RegularGridTree.jl")
 #Implementation of a spherical tree for isea grid on 10 diamonds
 include("iseatree.jl")
 #Reprojection code
-include("LazyProjection.jl")
+include("LazyProjection/LazyProjection.jl")
 
 
 
 function index_to_lonlat(i::Integer, t)
     uind = index_to_unitsphere(i, t)
+    @show uind
     GeographicFromUnitSphere()(uind)
 end
 

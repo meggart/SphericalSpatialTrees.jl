@@ -76,23 +76,6 @@ function test_intersect_highres(source,target_smalltree,sourcechunk)
     any_intersect(target_smalltree, source_smalltree)
 end
 
-function load_sourcechunks(source,chunks)
-    input_chunks = map(chunks) do c
-        chunk_cartindex = CartesianIndex(index_to_cartesian(c,source.chunktree))
-        sourceindices = indices_from_chunk(source,c)
-        aout = source.ar.data[sourceindices...]
-        data = OffsetArray(aout,sourceindices...)
-        chunk_cartindex => data
-    end
-    i1,i2 = extrema(first,input_chunks)
-    s = (i2.-i1+oneunit(i1)).I
-    et = typeof(last(first(input_chunks)))
-    sourcearrays = OffsetArray(Matrix{et}(undef,s...),(i1-oneunit(i1)).I...)
-    for (i,a) in input_chunks
-        sourcearrays[i]=a
-    end
-    sourcearrays
-end
 
 struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
     source::ProjectionSource
@@ -139,6 +122,8 @@ function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups
     return mybuffer
 end
 
+struct NearestProjection end
+
 function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffer)
     source = a.source
     target = a.target
@@ -149,22 +134,6 @@ function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffe
     compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
 end
 
-function copydata!(outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
-    alllinind = LinearIndices(gridsize(targettree))
-    
-    Threads.@threads for targetindex in CartesianIndices(targetinds)
-        ind = alllinind[targetindex]
-        unit = index_to_unitsphere(ind, targettree)
-        sourcecoords = isourcetrans(unit)
-        sourceindices = map(sourcecoords,lookups) do coord,look
-            DD.selectindices(look, DD.Near(coord))
-        end
-        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
-        cI = CartesianIndex(chunkindices)
-        outar[targetindex] = sourcearrays[cI][sourceindices...]
-    end
-    outar
-end
 
 function make_indexbuffer(sourcetree, targettree, N=50)
     Nsource = ndims(sourcetree)
@@ -172,12 +141,20 @@ function make_indexbuffer(sourcetree, targettree, N=50)
     [(CartesianIndex{Ntarget}[], CartesianIndex{Nsource}[]) for _ in 1:N]
 end
 
+
+
+
+
+
 function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
     outarray = OffsetArray(aout, targetinds...)
     chunks = compute_connected_chunks(a.source, a.target,targetinds)
-    sourcearrays = load_sourcechunks(a.source,chunks)
     isourcetrans = inv(get_projection(a.source.tree))
-    copydata!(outarray, targetinds,sourcearrays, a.target.tree, isourcetrans, a.source.lookups,a.source.chunks)
+    if length(chunks) < 8
+        project_batched(a,outarray,chunks,isourcetrans,targetinds)
+    else
+        project_sequential(a,outarray,chunks,isourcetrans,targetinds)
+    end
 end
 
 function reproject!(target_array,source,target)
@@ -191,3 +168,6 @@ function reproject!(target_array,source,target)
         target_array.data[targetchunk...] = aout
     end
 end
+
+include("sequential.jl")
+include("batched.jl")

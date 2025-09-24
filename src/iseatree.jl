@@ -105,6 +105,7 @@ function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolu
     ProjectionTarget(tree,chunktree)
 end
 
+
 function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
     path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict())
     outdims = (DD.Dim{:dggs_i}(0:(2^target.tree.resolution-1)),

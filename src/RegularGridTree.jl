@@ -15,6 +15,11 @@ struct RegularGridTree{DX,DY,T,S}
     tag::S
 end
 Base.ndims(t::RegularGridTree) = 2
+gridsize(t::RegularGridTree) = (length(t.x)-1,length(t.y)-1)
+function get_gridextent(t::RegularGridTree, xr::AbstractUnitRange, yr::AbstractUnitRange)
+    t = TreeNode(t, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
+    node_extent(t)
+end
 get_projection(t::RegularGridTree) = t.trans
 """
     RegularGridTree(x, y, transform=UnitSphereFromGeographic())
