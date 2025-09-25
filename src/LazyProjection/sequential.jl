@@ -7,7 +7,7 @@ function copy_sequential(outarray, inds, source)
     end
 end
 
-function make_indexbuffer(sourcetree, targettree, N=50)
+function make_indexbuffer(sourcetree, targettree, N=100)
     Nsource = ndims(sourcetree)
     Ntarget = ndims(targettree)
     [(CartesianIndex{Ntarget}[], CartesianIndex{Nsource}[]) for _ in 1:N]

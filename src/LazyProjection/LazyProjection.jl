@@ -135,12 +135,6 @@ function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffe
 end
 
 
-function make_indexbuffer(sourcetree, targettree, N=100)
-    Nsource = ndims(sourcetree)
-    Ntarget = ndims(targettree)
-    [(CartesianIndex{Ntarget}[], CartesianIndex{Nsource}[]) for _ in 1:N]
-end
-
 
 
 
