@@ -108,7 +108,7 @@ function Base.show(io::IO, ::MIME"text/plain", lpda::LazyProjectedDiskArray{T}) 
     print(io, "$dims_str LazyProjectedDiskArray{$T}")
 end
 
-function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{<:Any,Nsource}}, chunks, index_arraybuffer) where Nsource
+function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{Any,Nsource}}, chunks, index_arraybuffer) where Nsource
     alllinind = LinearIndices(gridsize(targettree))
     #Ntarget = ndims(targettree)
     inner_indexarray = fill((zero(CartesianIndex{Nsource}), zero(CartesianIndex{Nsource})), length.(targetinds)...)
