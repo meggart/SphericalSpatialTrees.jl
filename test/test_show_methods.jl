@@ -15,21 +15,15 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             # Test output
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
             output = String(take!(io))
-
-            # Split output into lines to test the new format
-            lines = split(output, '\n')
             
-            # First line should be copy-pastable tree constructor
-            @test lines[1] == "RegularGridTree(361×181)"
-            
-            # Second line should be ProjectionSource info in cyan (test content, not color)
-            @test lines[2] == "ProjectionSource{Float64}(360×180)"
+            # 
+            @test output == "ProjectionSource{Float64}(360×180, RegularGridTree(361×181))"
 
             # Verify conciseness - should be much shorter than default
             io_default = IOBuffer()
@@ -46,7 +40,7 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
@@ -64,7 +58,7 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
@@ -81,7 +75,7 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
@@ -102,10 +96,10 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             # Create target with ISEACircleTree
-            target = SphericalSpatialTrees.ProjectionTarget(ISEACircleTree, 4, 2)
+            target = SphericalSpatialTrees.ProjectionTarget(SST.ISEACircleTree, 4, 2)
             lpda = SphericalSpatialTrees.LazyProjectedDiskArray(source, target)
 
             io = IOBuffer()
@@ -129,9 +123,9 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
-            target = SphericalSpatialTrees.ProjectionTarget(ISEACircleTree, 6, 3)
+            target = SphericalSpatialTrees.ProjectionTarget(SST.ISEACircleTree, 6, 3)
             lpda = SphericalSpatialTrees.LazyProjectedDiskArray(source, target)
 
             io = IOBuffer()
@@ -149,9 +143,9 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
-            target = SST.ProjectionTarget(ISEACircleTree, 2, 1)
+            target = SST.ProjectionTarget(SST.ISEACircleTree, 2, 1)
             lpda = SST.LazyProjectedDiskArray(source, target)
 
             io = IOBuffer()
@@ -169,9 +163,9 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
-            target = SST.ProjectionTarget(ISEACircleTree, 8, 4)
+            target = SST.ProjectionTarget(SST.ISEACircleTree, 8, 4)
             lpda = SST.LazyProjectedDiskArray(source, target)
 
             io = IOBuffer()
@@ -284,7 +278,7 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
@@ -309,7 +303,7 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             # Custom show method
             io_custom = IOBuffer()
@@ -338,9 +332,9 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
-            target = SphericalSpatialTrees.ProjectionTarget(ISEACircleTree, 5, 3)
+            target = SphericalSpatialTrees.ProjectionTarget(SST.ISEACircleTree, 5, 3)
             lpda = SphericalSpatialTrees.LazyProjectedDiskArray(source, target)
 
             # Custom show method
@@ -378,7 +372,7 @@ import DimensionalData as DD
             y_small = y[1:51]
             dims = (DD.X(x_small[1:end-1]), DD.Y(y_small[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             # Should not throw exceptions
             io = IOBuffer()
@@ -400,7 +394,7 @@ import DimensionalData as DD
 
                 dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
                 ar = DD.DimArray(data, dims)
-                ps = SST.ProjectionSource(RegularGridTree, ar)
+                ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
                 io = IOBuffer()
                 @test_nowarn show(io, MIME"text/plain"(), ps)
@@ -419,9 +413,9 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            source = SST.ProjectionSource(RegularGridTree, ar)
+            source = SST.ProjectionSource(SST.RegularGridTree, ar)
 
-            target = SST.ProjectionTarget(ISEACircleTree, 4, 2)
+            target = SST.ProjectionTarget(SST.ISEACircleTree, 4, 2)
             lpda = SST.LazyProjectedDiskArray(source, target)
 
             # Test all show methods don't throw
@@ -450,7 +444,7 @@ import DimensionalData as DD
 
                 dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
                 ar = DD.DimArray(data, dims)
-                ps = SST.ProjectionSource(RegularGridTree, ar)
+                ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
                 io = IOBuffer()
                 show(io, MIME"text/plain"(), ps)
@@ -468,12 +462,11 @@ import DimensionalData as DD
 
             dims = (DD.X(x[1:end-1]), DD.Y(y[1:end-1]))
             ar = DD.DimArray(data, dims)
-            ps = SST.ProjectionSource(RegularGridTree, ar)
+            ps = SST.ProjectionSource(SST.RegularGridTree, ar)
 
             io = IOBuffer()
             show(io, MIME"text/plain"(), ps)
             output = String(take!(io))
-
             # Should have type in curly braces
             @test contains(output, "{Float64}")
             @test startswith(output, "ProjectionSource{Float64}")

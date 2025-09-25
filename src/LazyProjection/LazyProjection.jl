@@ -29,15 +29,16 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionSource)
     # First line: Show tree constructor in copy-pastable format
-    compact_io = IOContext(io, :compact => true)
-    show(compact_io, ps.tree)
+    b = IOBuffer()
+    bcompact = IOContext(b, :compact => true)
+    show(bcompact,ps.tree)
+    treestring = String(take!(b))
     
     # Additional lines in cyan: Show ProjectionSource{T}(dims) with element type and dimensions
     T = eltype(ps.ar)
     dims = size(ps.ar)
     dims_str = join(dims, "×")
-    print(io, "\n")
-    printstyled(io, "ProjectionSource{$T}($dims_str)", color=:cyan)
+    printstyled(io, "ProjectionSource{$T}($dims_str, $treestring)", color=:cyan)
 end
 
 function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims = (DD.XDim,DD.YDim))
