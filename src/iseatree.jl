@@ -1,4 +1,4 @@
-using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects
+using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects,_merge
 using .NativeISEA: ISEA10, ISEA, RotateISEA, InvRotateISEA, PickPlane
 using StaticArrays: @SVector
 using YAXArrays: YAXArray, setchunks, Dataset, savedataset
@@ -14,7 +14,7 @@ ISEACircleTree(isea::ISEA,resolution::Int) = ISEACircleTree(isea,resolution, ran
 ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(),resolution)
 gridsize(t::ISEACircleTree) = (2^t.resolution, 2^t.resolution, 10)
 Base.ndims(t::ISEACircleTree) = 3
-get_projection(t::ISEACircleTree) = RotateISEA() ∘ ISEA10(t.isea)
+get_projection(t::ISEACircleTree) = inv(RotateISEA() ∘ ISEA10(t.isea))
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
 rootnode(t::ISEACircleTree) = t
@@ -29,10 +29,11 @@ function Base.show(io::IO, tree::ISEACircleTree)
 end
 
 function get_gridextent(t::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
-    n = only(nr)
-    c = getchild(t, n)
-    t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
-    node_extent(t)
+    mapreduce(_merge,nr) do n 
+        c = getchild(t, n)
+        t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
+        node_extent(t)
+    end
 end
 
 struct ISEATag
@@ -55,21 +56,21 @@ function getchild(t::ISEACircleTree, i)
     rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution,i)))
 end
 
-function lin_to_cart(i::Integer,t::ISEACircleTree)
+function index_to_cartesian(i::Integer, t::ISEACircleTree)
     n = 2^t.resolution
     CartesianIndices((n,n,10))[i].I
 end
 function index_to_unitsphere(i::Integer,t::ISEACircleTree)
     xr,yr = get_xyranges(t)
     halfstep = step(xr) / 2
-    i,j,k = lin_to_cart(i,t)
+    i,j,k = index_to_cartesian(i,t)
     x = xr[i] + halfstep
     y = yr[j] + halfstep
     getchild(t,k).grid.trans((x, y))
 end
 
 function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)
-    i,j,k = lin_to_cart(i,t)
+    i,j,k = index_to_cartesian(i,t)
     index_to_polygon_unitsphere(CartesianIndex(i,j,k),t)
 end
 
@@ -82,6 +83,13 @@ function index_to_polygon_unitsphere(i::CartesianIndex,t::ISEACircleTree)
     getchild(t,k).grid.trans.(poly)
 end
 
+# function indices_from_chunk(s::ProjectionSource{<:Any,<:ISEACircleTree}, target_chunk)
+#     inds = index_to_cartesian(target_chunk,s.chunktree)
+#     chunkrange = map(getindex,s.chunks,inds)
+#     map(chunkrange) do cr
+#         Colon()(extrema(cr)...)
+#     end
+# end
 
 """
     get_subtree(source_tree, target_chunk, target_tree)
@@ -90,6 +98,9 @@ Expands the target chunk to to the full subtree containing all grid cells at the
 """
 function get_subtree(tree::ISEACircleTree, target_indices)
     ix,iy,n = target_indices
+    if length(n) > 1
+        return rootnode(tree)
+    end
     gridtree = getchild(tree, n).grid
     xsub = gridtree.x[ix]
     ysub = gridtree.y[iy]

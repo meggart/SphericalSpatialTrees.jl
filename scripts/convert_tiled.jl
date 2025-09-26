@@ -8,7 +8,7 @@ using GeometryOps.UnitSpherical: GeographicFromUnitSphere, spherical_distance,
 using YAXArrays, Rasters, RasterDataSources, ArchGDAL, Zarr # data sources
 using GeoMakie, GLMakie # visualization
 
-ENV["RASTERDATASOURCES_PATH"] = mkpath(@__DIR__, "data") # hide
+ENV["RASTERDATASOURCES_PATH"] = mkdir(joinpath(@__DIR__, "data")) # hide
 
 # Now that we have loaded all of these packages, let's start talking about functionality.
 # 
@@ -23,15 +23,15 @@ ras = modify(ras) do A
 end # TODO: remove once diskarrays pr is merged
 # Let's give this dataset some chunks.  It's 2180x1080 so 
 # 100x100 chunks give it 22x11 chunks.
-ras_chunked = DiskArrays.mockchunks(ras, DiskArrays.GridChunks(size(ras), (100, 100)))
+ras_chunked = DiskArrays.mockchunks(ras,  (100, 100))
 # Now, we need to define the source and target trees.  The dataset itself is
 # on a plane (equirectangular projection), so we can use the `RegularGridTree`
 # which is an implicit quadtree.
-source = SST.ProjectionSource(SST.RegularGridTree, c);
+source = SST.ProjectionSource(SST.RegularGridTree, ras_chunked);
 # We want to go to a DGGS target, so we can use the `ISEACircleTree` 
 # (based on the Snyder equal area projection).  This is the only tree so far
 # but more can be added as we go forward.
-target = SST.ProjectionTarget(SST.ISEACircleTree, 8, 2)
+target = SST.ProjectionTarget(SST.ISEACircleTree, 7, 2)
 # As a sidenote, this is what actually happens internally.  Using the spatial
 # tree interface, we compute the map of chunks in the source dataset that each
 # chunk in the target dataset requires to be materialized.
@@ -39,9 +39,11 @@ SST.compute_connected_chunks(source, target)
 # Now, we can create the lazy projected disk array.
 a = SST.LazyProjectedDiskArray(source, target)
 # You can now access some data, using this as you would use any array:
-a[1, 1, 1]
+a[1:10,1:10,1]
 # You can also materialize the array fully into memory (if the array is small enough):
-@time ac = collect(a)
+ac = mapreduce((i,j)->cat(i,j,dims=3),1:10) do n
+    a[:,:,n]
+end    
 # Now let's visualize this!  GLMakie has no problem visualizing this many polygons:
 
 # First, let's get every polygon:
@@ -55,7 +57,9 @@ fig
 # To give a better idea of what this looks like, let's use a lower level (lower resolution) DGGS:
 target = SST.ProjectionTarget(SST.ISEACircleTree, 3, 2)
 a = SST.LazyProjectedDiskArray(source, target)
-@time ac = collect(a)
+ac = mapreduce((i,j)->cat(i,j,dims=3),1:10) do n
+    a[:,:,n]
+end  
 polys = SST.index_to_polygon_lonlat.(eachindex(a), (target.tree,))
 fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
@@ -73,7 +77,7 @@ mycircle = SphericalCap(UnitSphereFromGeographic()(mycoord), rad)
 # Query 
 r = GO.query(iseat, mycircle)
 points = SST.index_to_lonlat.(r, (iseat,))
-f, a, p = scatter(points; color = Makie.Cycled(2), axis = (; type = GlobeAxis, show_axis = false))
+f, a, p = scatter(points; color = Makie.Cycled(2), axis = (; type = GlobeAxis, show_axis = false));
 lines!(a, GeoMakie.coastlines())
 f
 
