@@ -6,12 +6,12 @@ import GeometryOps.LoopStateMachine: Action
 
 #Native implementation of isea projection
 include("nativeisea.jl")
+#Reprojection code
+include("LazyProjection/LazyProjection.jl")
 #Implementation of a spherical tree in regular grids
 include("RegularGridTree.jl")
 #Implementation of a spherical tree for isea grid on 10 diamonds
 include("iseatree.jl")
-#Reprojection code
-include("LazyProjection/LazyProjection.jl")
 #Webmercator implementation
 include("webmercator.jl")
 

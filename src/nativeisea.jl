@@ -171,7 +171,7 @@ Base.inv(isea::InvISEA20) = ISEA20(isea.isea)
 ISEA20(args...;kwargs...) = ISEA20(ISEA(args...;kwargs...))
 InvISEA20(args...;kwargs...) = InvISEA20(ISEA(args...;kwargs...))
 
-function to_single_plane((itri, x, y))
+function to_single_plane((x, y, itri))
     if 1 <= itri <= 5 #North triangles
         return x + itri - 1, y
     elseif 6 <= itri <= 10 # South triangles
@@ -197,18 +197,18 @@ function _transform_isea(isea::ISEA,p::UnitSphericalPoint)
     grid = isea
     t = isea.triangles[1]
     d = fast_triangle_distance(t,p)
-    iszero(d) && return (1, first(transform_point(p,t))...)
+    iszero(d) && return (first(transform_point(p,t))..., 1)
     current_min = d, 1
     for i in 2:20
         t = grid.triangles[i]
         d = fast_triangle_distance(t,p)
-        iszero(d) && return (i, first(transform_point(p,t))...)
+        iszero(d) && return (first(transform_point(p,t))..., i)
         if d < first(current_min)
             current_min = d, i
         end
     end
     #Nothing was found, so lets use the triangle with the smallest distance
-    return (last(current_min), first(transform_point(p,grid.triangles[last(current_min)]))...)
+    return (first(transform_point(p,grid.triangles[last(current_min)]))..., last(current_min))
 end
 (isea::ISEA20)(p::UnitSphericalPoint) = _transform_isea(isea.isea,p)
 
@@ -293,7 +293,7 @@ end
 #     p = pointonsurface/norm(pointonsurface)
 #     return GeographicFromUnitSphere()(p)
 # end
-function itransform_point(x, y, t)
+function itransform_point(t, x, y)
     itri = find_subtriangle(PlaneCoordinates,@SVector([x,y]))
     planetri = PlaneCoordinates.triangles[itri]
     trimat = vcat(@SMatrix([1.0 1.0 1.0]),[planetri.A planetri.B planetri.C])
@@ -318,7 +318,7 @@ function itransform_point(x, y, t)
     T = acos(1 + h^2 * (dot(t.A, p) - 1)) / acos(dot(t.A, p))
     slerp(t.A, p, T)
 end
-(isea::InvISEA20)((n, x1, x2)) = itransform_point(x1, x2, isea.isea.triangles[n])
+(isea::InvISEA20)((x1, x2, n)) = itransform_point(isea.isea.triangles[n], x1, x2)
 
 
 const northpairs = [(i,i+15) for i in 1:5]
@@ -334,19 +334,19 @@ struct ISEADiamondToTriangles <: Transformation end
 Base.inv(::ISEATrianglesToDiamond) = ISEADiamondToTriangles()
 Base.inv(::ISEADiamondToTriangles) = ISEATrianglesToDiamond()
 
-function (::ISEATrianglesToDiamond)((n,x1,x2))
+function (::ISEATrianglesToDiamond)((x1,x2,n))
     i,j = tri2diamond[n]
     if j == 2
         #We are in the south diamond, so we need to reverse the x2 coordinate
         x1 = 1-x1
         x2 = -x2
     end
-    return i,x1,x2
+    return x1,x2,i
 end
-function (::ISEADiamondToTriangles)((i,x1,x2))
+function (::ISEADiamondToTriangles)((x1,x2,i))
     i1,i2 = diamond2tri[i]
     i,x1,x2 = x2 < 0 ? (i2,1-x1,-x2) : (i1,x1,x2)
-    i,x1,x2
+    x1,x2,i
 end
 
 ISEA10(isea::ISEA) = ISEATrianglesToDiamond() ∘ ISEA20(isea)
@@ -357,13 +357,13 @@ struct InvRotateISEA <: Transformation end
 Base.inv(::RotateISEA) = InvRotateISEA()
 Base.inv(::InvRotateISEA) = RotateISEA()
 
-function (::RotateISEA)((i,x,y))
+function (::RotateISEA)((x,y,i))
     x,y = trans_matrix * @SVector([x,y])
-    i,x,y/sqrt(3)*2
+    x,y/sqrt(3)*2,i
 end
-function (::InvRotateISEA)((i,x,y))
+function (::InvRotateISEA)((x,y,i))
     x1, x2 = NativeISEA.itrans_matrix * @SVector([x, y * sqrt(3) / 2])
-    i,x1,x2
+    x1,x2,i
 end
 
 
@@ -373,7 +373,7 @@ Base.inv(::ISEARectToDiamond) = ISEADiamondToRect()
 Base.inv(::ISEADiamondToRect) = ISEARectToDiamond()
 
 
-function (::ISEARectToDiamond)((i,x1,x2) )
+function (::ISEARectToDiamond)((x1,x2,i) )
     isdown = dist_rhs(@SVector([0.5,-sqrt(3)/2]),@SVector([1.0,0.0]),@SVector([x1,x2])) < 0
     i = mod1(i+1,5)
     if isdown
@@ -381,16 +381,16 @@ function (::ISEARectToDiamond)((i,x1,x2) )
         x2 = x2+sqrt(3)/2
         i = i + 5
     end
-    i,x1,x2
+    x1,x2,i
 end
 _diamond2rect(i) = mod1(i-1,5),(i-1)÷5+1
-function (::ISEADiamondToRect)((i,x,y))
+function (::ISEADiamondToRect)((x,y,i))
     i,lr = _diamond2rect(i)
     if lr == 2
         x = 0.5+x
         y = -sqrt(3)/2 + y
     end
-    i,x,y
+    x,y,i
 end
 
 ISEA5(isea::ISEA) = ISEADiamondToRect() ∘ ISEATrianglesToDiamond() ∘ ISEA20(isea)
@@ -400,7 +400,7 @@ ISEA5(args...;kwargs...) = ISEADiamondToRect() ∘ ISEATrianglesToDiamond() ∘ 
 struct PickPlane <: Transformation
     i::Int
 end
-(p::PickPlane)(coords) = (p.i,coords...)
+(p::PickPlane)(coords) = (coords...,p.i)
 
 
 

@@ -1,8 +1,7 @@
 function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
     alllinind = LinearIndices(gridsize(targettree))
-    
-    # Threads.@threads for targetindex in CartesianIndices(targetinds)
-    for targetindex in CartesianIndices(targetinds)
+    Threads.@threads for targetindex in CartesianIndices(targetinds)
+    #for targetindex in CartesianIndices(targetinds)
         ind = alllinind[targetindex]
         unit = index_to_unitsphere(ind, targettree)
         sourcecoords = isourcetrans(unit)
@@ -11,11 +10,6 @@ function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcear
         end
         chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
         cI = CartesianIndex(chunkindices)
-        # @show cI
-        # @show sourceindices
-        # @show targetindex
-        # @show axes(sourcearrays)
-        # @show axes(outar)
         outar[targetindex] = sourcearrays[cI][sourceindices...]
     end
     outar
