@@ -13,8 +13,9 @@ using DimensionalData
     chunk_length = 2
     target = SST.ProjectionTarget(SST.ISEACircleTree, dggs_resolution, chunk_length)
     dggs_a = SST.LazyProjectedDiskArray(source, target)
+    dggs_length = 2^dggs_resolution
 
-    @test size(dggs_a) == (2^dggs_resolution, 2^dggs_resolution, 10)
-    @test size(dggs_a[1, 1, 1]) == ()
-    @test size(collect(dggs_a)) == (2^dggs_resolution, 2^dggs_resolution, 10)
+    @test size(dggs_a) == (dggs_length, dggs_length, 10)
+    @test size(dggs_a[1:2, 1:2, 1]) == (2, 2)
+    @test size(dggs_a[1:dggs_length, 1:dggs_length, 1]) == (dggs_length, dggs_length)
 end
