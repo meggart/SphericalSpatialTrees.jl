@@ -1,0 +1,6 @@
+[deps]
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
+GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
+SphericalSpatialTrees = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
