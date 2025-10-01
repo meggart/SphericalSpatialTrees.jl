@@ -1,7 +1,7 @@
 using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects, _merge
 using .NativeISEA: ISEA10, ISEA, RotateISEA, InvRotateISEA, PickPlane
 using StaticArrays: @SVector
-using YAXArrays: YAXArray, setchunks, Dataset, savedataset
+import YAXArrayBase
 using FillArrays: Fill
 
 struct ISEACircleTree
@@ -109,18 +109,29 @@ function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolu
 end
 
 
+
+
 function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
-    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict())
-    outdims = (DD.Dim{:dggs_i}(0:(2^target.tree.resolution-1)),
-        DD.Dim{:dggs_j}(0:(2^target.tree.resolution-1)),
-        DD.Dim{:dggs_n}(0:9),
-    )
-    a = YAXArray(outdims, Fill(0.0,length.(outdims)),arraymeta)
+    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
+
+    back = YAXArrayBase.backendfrompath(path;driver=backend)
+    axnames = ("dggs_i","dggs_j","dggs_n")
     cs = 2^(target.tree.resolution-target.chunktree.resolution)
-    p = Symbol(arrayname)=>setchunks(a,(cs,cs,1))
-    p = (p,)
-    ds = Dataset(;properties=datasetmeta,p...)
-    ds = savedataset(ds,path = path, skeleton=true, overwrite=true)
+    group = YAXArrayBase.create_dataset(
+            back,
+            path,
+            datasetmeta,
+            axnames,
+            (0:(2^target.tree.resolution-1),0:(2^target.tree.resolution-1),0:9),
+            (Dict(),Dict(),Dict()),
+            (output_datatype,),
+            (string(arrayname),),
+            (axnames,),
+            (arraymeta,),
+            ((cs,cs,1),);
+            kwargs...
+        )
+    group[string(arrayname)]
 end
 
 function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,:dggs_j,:dggs_n))
