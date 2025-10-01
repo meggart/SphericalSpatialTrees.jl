@@ -171,5 +171,37 @@ function get_subtree(tree::RegularGridTree,targetinds)
     r1,r2 = targetinds
     ix1,ix2 = first(r1), last(r1)
     iy1,iy2 = first(r2), last(r2)
-    TreeNode(tree, TreeIndex((ix1, ix2), (iy1, iy2)))
+    TreeNode(tree, TreeIndex((ix1, ix2+1), (iy1, iy2+1)))
 end
+
+function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims = (DD.XDim,DD.YDim))
+    tree = RegularGridTree(ar,spatial_dims)
+    lookups = map(DD.format,DD.dims(ar,spatial_dims))
+    chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
+        DD.rebuild(d,c)
+    end
+    xchunks,ychunks = DD.dims(chunks,spatial_dims)
+    xchunkbnds = vcat(tree.x[first.(xchunks.val)], last(tree.x))
+    ychunkbnds = vcat(tree.y[first.(ychunks.val)], last(tree.y))
+    chunktree = RegularGridTree(xchunkbnds,ychunkbnds)
+    ProjectionSource(ar,tree,chunktree,lookups,chunks)
+end
+
+#Compute indices given a chunk index for the high-resolution tree
+function indices_from_chunk(s::ProjectionSource{<:Any,<:RegularGridTree}, target_chunk)
+    inds = index_to_cartesian(target_chunk, s.chunktree)
+    chunkrange = map(getindex,s.chunks,inds)
+    map(chunkrange) do cr
+        Colon()(extrema(cr)...)
+    end
+end
+
+
+function ProjectionTarget(::Type{<:RegularGridTree},x,y,trans=UnitSphereFromGeographic();chunksize=256)
+    tree = RegularGridTree(x,y,trans)
+    xchunk = x[1:chunksize:end]
+    ychunk = y[1:chunksize:end]
+    chunktree = RegularGridTree(xchunk,ychunk,trans)
+    ProjectionTarget(tree,chunktree)
+end
+Base.ndims(::Type{RegularGridTree}) = 2

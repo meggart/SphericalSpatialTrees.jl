@@ -1,7 +1,7 @@
-using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects
+using GeometryOps.UnitSpherical: SphericalCap, UnitSphereFromGeographic, GeographicFromUnitSphere, _intersects, _merge
 using .NativeISEA: ISEA10, ISEA, RotateISEA, InvRotateISEA, PickPlane
 using StaticArrays: @SVector
-using YAXArrays: YAXArray, setchunks, Dataset, savedataset
+import YAXArrayBase
 using FillArrays: Fill
 
 struct ISEACircleTree
@@ -14,7 +14,7 @@ ISEACircleTree(isea::ISEA,resolution::Int) = ISEACircleTree(isea,resolution, ran
 ISEACircleTree(resolution::Int) = ISEACircleTree(ISEA(),resolution)
 gridsize(t::ISEACircleTree) = (2^t.resolution, 2^t.resolution, 10)
 Base.ndims(t::ISEACircleTree) = 3
-get_projection(t::ISEACircleTree) = RotateISEA() ∘ ISEA10(t.isea)
+get_projection(t::ISEACircleTree) = inv(RotateISEA() ∘ ISEA10(t.isea))
 nchild(n::ISEACircleTree) = 10
 getchild(n::ISEACircleTree) = (getchild(n,i) for i in 1:nchild(n))
 rootnode(t::ISEACircleTree) = t
@@ -29,10 +29,11 @@ function Base.show(io::IO, tree::ISEACircleTree)
 end
 
 function get_gridextent(t::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
-    n = only(nr)
+    mapreduce(_merge,nr) do n 
     c = getchild(t, n)
     t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
     node_extent(t)
+    end
 end
 
 struct ISEATag
@@ -55,21 +56,21 @@ function getchild(t::ISEACircleTree, i)
     rootnode(RegularGridTree(xr,yr,t1,ISEATag(t.resolution,i)))
 end
 
-function lin_to_cart(i::Integer,t::ISEACircleTree)
+function index_to_cartesian(i::Integer, t::ISEACircleTree)
     n = 2^t.resolution
     CartesianIndices((n,n,10))[i].I
 end
 function index_to_unitsphere(i::Integer,t::ISEACircleTree)
     xr,yr = get_xyranges(t)
     halfstep = step(xr) / 2
-    i,j,k = lin_to_cart(i,t)
+    i,j,k = index_to_cartesian(i,t)
     x = xr[i] + halfstep
     y = yr[j] + halfstep
     getchild(t,k).grid.trans((x, y))
 end
 
 function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)
-    i,j,k = lin_to_cart(i,t)
+    i,j,k = index_to_cartesian(i,t)
     index_to_polygon_unitsphere(CartesianIndex(i,j,k),t)
 end
 
@@ -82,7 +83,6 @@ function index_to_polygon_unitsphere(i::CartesianIndex,t::ISEACircleTree)
     getchild(t,k).grid.trans.(poly)
 end
 
-
 """
     get_subtree(source_tree, target_chunk, target_tree)
 
@@ -90,6 +90,9 @@ Expands the target chunk to to the full subtree containing all grid cells at the
 """
 function get_subtree(tree::ISEACircleTree, target_indices)
     ix,iy,n = target_indices
+    if length(n) > 1
+        return rootnode(tree)
+    end
     gridtree = getchild(tree, n).grid
     xsub = gridtree.x[ix]
     ysub = gridtree.y[iy]
@@ -98,11 +101,6 @@ function get_subtree(tree::ISEACircleTree, target_indices)
 end
 
 
-
-struct ProjectionTarget{T,CT}
-    tree::T
-    chunktree::CT
-end
 function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolution;iseaargs=())
     isea = ISEA(iseaargs...)
     tree = ISEACircleTree(isea,target_resolution)
@@ -111,20 +109,62 @@ function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolu
 end
 
 
+
+
 function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
-    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict())
-    outdims = (DD.Dim{:dggs_i}(0:(2^target.tree.resolution-1)),
-        DD.Dim{:dggs_j}(0:(2^target.tree.resolution-1)),
-        DD.Dim{:dggs_n}(0:9),
-    )
-    a = YAXArray(outdims, Fill(0.0,length.(outdims)),arraymeta)
+    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
+
+    back = YAXArrayBase.backendfrompath(path;driver=backend)
+    axnames = ("dggs_i","dggs_j","dggs_n")
     cs = 2^(target.tree.resolution-target.chunktree.resolution)
-    p = Symbol(arrayname)=>setchunks(a,(cs,cs,1))
-    p = (p,)
-    ds = Dataset(;properties=datasetmeta,p...)
-    ds = savedataset(ds,path = path, skeleton=true, overwrite=true)
+    group = YAXArrayBase.create_dataset(
+            back,
+            path,
+            datasetmeta,
+            axnames,
+            (0:(2^target.tree.resolution-1),0:(2^target.tree.resolution-1),0:9),
+            (Dict(),Dict(),Dict()),
+            (output_datatype,),
+            (string(arrayname),),
+            (axnames,),
+            (arraymeta,),
+            ((cs,cs,1),);
+            kwargs...
+        )
+    group[string(arrayname)]
 end
 
+function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,:dggs_j,:dggs_n))
+    isea = ISEA()
+    nx,ny,n = size(ar)
+    @assert n == 10 "The target must have 10 faces, got $n"
+    @assert nx == ny "All ISEA faces should be square"
+    flev = log2(nx)
+    @assert isinteger(lev) "Size of face square should must have power of 2 length"
+    lev = Int(flev)
+    tree = ISEACircleTree(isea,lev)
+    chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
+        DD.rebuild(d,c)
+    end
+    hsx = step(tree.xr)/2
+    hsy = step(tree.yr)/2
+    xrmid = range(first(tree.xr)+hsx,last(tree.xr)-hsx,nx)
+    yrmid = range(first(tree.yr)+hsy,last(tree.yr)-hsy,ny)
+    lookups = DD.Dim{:dggs_i}(xrmid), DD.Dim{:dggs_j}(yrmid),  DD.Dim{:dggs_n}(1:10)
+    lookups = DD.format.(lookups)
+    xchunks,ychunks,nchunks = DD.dims(chunks,spatial_dims)
+    chunkres = Int(log2(length(xchunks)))
+    chunktree = ISEACircleTree(isea,chunkres)
+    ProjectionSource(ar,tree,chunktree,lookups,chunks)
+end
+
+function indices_from_chunk(s::ProjectionSource{<:Any,<:ISEACircleTree}, target_chunk)
+    inds = index_to_cartesian(target_chunk,s.chunktree)
+    chunkrange = map(getindex,s.chunks,inds)
+    map(chunkrange) do cr
+        Colon()(extrema(cr)...)
+    end
+end
 
 # """
 #     indices_from_chunk(s::ISEASourceOrTarget, target_indices)
