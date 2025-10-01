@@ -137,9 +137,11 @@ end
 function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,:dggs_j,:dggs_n))
     isea = ISEA()
     nx,ny,n = size(ar)
-    n==10 || error()
-    nx == ny || error()
-    lev = Int(log2(nx))
+    @assert n == 10 "The target must have 10 faces, got $n"
+    @assert nx == ny "All ISEA faces should be square"
+    flev = log2(nx)
+    @assert isinteger(lev) "Size of face square should must have power of 2 length"
+    lev = Int(flev)
     tree = ISEACircleTree(isea,lev)
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
         DD.rebuild(d,c)
