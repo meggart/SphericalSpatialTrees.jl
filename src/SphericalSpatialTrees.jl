@@ -12,7 +12,8 @@ include("RegularGridTree.jl")
 include("iseatree.jl")
 #Reprojection code
 include("LazyProjection/LazyProjection.jl")
-
+#Webmercator implementation
+include("webmercator.jl")
 
 
 function index_to_lonlat(i::Integer, t)
