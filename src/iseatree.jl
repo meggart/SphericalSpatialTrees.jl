@@ -28,11 +28,11 @@ function Base.show(io::IO, tree::ISEACircleTree)
     print(io, "$(elements)-leaf ISEACircleTree($(tree.resolution))")
 end
 
-function get_gridextent(t::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
-    mapreduce(_merge,nr) do n 
-    c = getchild(t, n)
-    t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
-    node_extent(t)
+function get_gridextent(tree::ISEACircleTree, xr::AbstractUnitRange, yr::AbstractUnitRange, nr::AbstractUnitRange)
+    mapreduce(_merge,nr) do n
+        c = getchild(tree, n)
+        t = TreeNode(c.grid, TreeIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1)))
+        node_extent(t)
     end
 end
 

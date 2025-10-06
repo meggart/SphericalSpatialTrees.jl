@@ -5,7 +5,7 @@ import DiskArrays
 using GeometryOps.UnitSpherical: GeographicFromUnitSphere, spherical_distance, 
                             UnitSphereFromGeographic, SphericalCap
 
-using YAXArrays, Rasters, RasterDataSources, ArchGDAL, Zarr # data sources
+using Rasters, RasterDataSources, ArchGDAL, Zarr # data sources
 using GeoMakie, GLMakie # visualization
 
 ENV["RASTERDATASOURCES_PATH"] = mkdir(joinpath(@__DIR__, "data")) # hide
@@ -41,9 +41,7 @@ a = SST.LazyProjectedDiskArray(source, target)
 # You can now access some data, using this as you would use any array:
 a[1:10,1:10,1]
 # You can also materialize the array fully into memory (if the array is small enough):
-ac = mapreduce((i,j)->cat(i,j,dims=3),1:10) do n
-    a[:,:,n]
-end    
+ac = collect(a)
 # Now let's visualize this!  GLMakie has no problem visualizing this many polygons:
 
 # First, let's get every polygon:
@@ -84,6 +82,7 @@ f
 poly1 = SST.index_to_polygon_lonlat(1, iseat)
 
 poly!(a, poly1; strokecolor = :red, strokewidth = 1)
+f
 
 lo,up = CartesianIndices(SST.gridsize(iseat))[r] |> extrema
 bb_isea = map(Colon(), lo.I, up.I)
