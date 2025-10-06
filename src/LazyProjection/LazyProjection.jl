@@ -73,7 +73,6 @@ function compute_connected_chunks(source::ProjectionSource, target::ProjectionTa
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
     depth_first_search(pred, rootnode(source.chunktree)) do n
-        
         test_intersect_highres(source,target_smalltree, n) && push!(res, n)
     end
     res

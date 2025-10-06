@@ -136,7 +136,7 @@ function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,
     @assert n == 10 "The target must have 10 faces, got $n"
     @assert nx == ny "All ISEA faces should be square"
     flev = log2(nx)
-    @assert isinteger(lev) "Size of face square should must have power of 2 length"
+    @assert isinteger(flev) "Size of face square should must have power of 2 length"
     lev = Int(flev)
     tree = ISEACircleTree(isea,lev)
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
@@ -148,7 +148,10 @@ function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,
     yrmid = range(first(tree.yr)+hsy,last(tree.yr)-hsy,ny)
     lookups = DD.Dim{:dggs_i}(xrmid), DD.Dim{:dggs_j}(yrmid),  DD.Dim{:dggs_n}(1:10)
     lookups = DD.format.(lookups)
-    xchunks,ychunks,nchunks = DD.dims(chunks,spatial_dims)
+    xchunks,ychunks,nchunks = map(spatial_dims) do sd
+        DD.dims(chunks,sd)
+    end
+    @assert xchunks.val == ychunks.val "Chunks in x and y must be equal"
     chunkres = Int(log2(length(xchunks)))
     chunktree = ISEACircleTree(isea,chunkres)
     ProjectionSource(ar,tree,chunktree,lookups,chunks)
