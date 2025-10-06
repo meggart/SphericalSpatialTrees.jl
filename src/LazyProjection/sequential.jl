@@ -37,7 +37,10 @@ function precompute_sequential_weights(targetinds, targettree, isourcetrans, loo
     end
     cartinds = first.(unique(first, indexarray))
     if length(cartinds) > length(index_arraybuffer)
-        error("Too many connected chunks")
+        app = first(index_arraybuffer)
+        for _ in 1:(length(cartinds) - length(index_arraybuffer))
+            push!(index_arraybuffer,deepcopy(app))
+        end
     end
     mybuffer = view(index_arraybuffer, 1:length(cartinds))
     foreach(mybuffer) do b

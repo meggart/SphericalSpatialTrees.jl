@@ -8,7 +8,6 @@ GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
 RasterDataSources = "3cb90ccd-e1b6-4867-9617-4276c8b2ca36"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 SphericalSpatialTrees = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
-YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
 
 [sources]

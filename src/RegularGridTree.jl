@@ -3,6 +3,7 @@ using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphe
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
     query, sanitize_predicate, node_extent, depth_first_search
 import GeometryOps: extent
+import StaticArrays: @SVector
 import GeometryOps.Extents: Extent, bounds
 import LinearAlgebra: norm
 import DimensionalData as DD
@@ -118,6 +119,17 @@ function child_indices_extents(tree::TreeNode)
 end
 nleaf(t::RegularGridTree) = (length(t.x)-1)*(length(t.y)-1)
 
+function node_to_polygon_unitsphere(i::TreeNode)
+    x1,x2 = i.index.x
+    y1,y2 = i.index.y
+    xr = i.grid.x
+    yr = i.grid.y
+    poly = @SVector [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
+    # Get the child face at index `k`, 
+    # that has a transformation back to the unit sphere.
+    i.grid.trans.(poly)
+end
+
 function circle_from_extent_1(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
     cx,cy = (x2 + x1) / 2, (y2 + y1) / 2
@@ -167,9 +179,41 @@ end
 # end
 
 
-function get_subtree(tree::RegularGridTree,targetinds)
+function TreeNode(tree::RegularGridTree,targetinds)
     r1,r2 = targetinds
     ix1,ix2 = first(r1), last(r1)
     iy1,iy2 = first(r2), last(r2)
-    TreeNode(tree, TreeIndex((ix1, ix2), (iy1, iy2)))
+    TreeNode(tree, TreeIndex((ix1, ix2+1), (iy1, iy2+1)))
 end
+
+function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims = (DD.XDim,DD.YDim))
+    tree = RegularGridTree(ar,spatial_dims)
+    lookups = map(DD.format,DD.dims(ar,spatial_dims))
+    chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
+        DD.rebuild(d,c)
+    end
+    xchunks,ychunks = DD.dims(chunks,spatial_dims)
+    xchunkbnds = vcat(tree.x[first.(xchunks.val)], last(tree.x))
+    ychunkbnds = vcat(tree.y[first.(ychunks.val)], last(tree.y))
+    chunktree = RegularGridTree(xchunkbnds,ychunkbnds)
+    ProjectionSource(ar,tree,chunktree,lookups,chunks)
+end
+
+#Compute indices given a chunk index for the high-resolution tree
+function indices_from_chunk(s::ProjectionSource{<:Any,<:RegularGridTree}, target_chunk)
+    inds = index_to_cartesian(target_chunk, s.chunktree)
+    chunkrange = map(getindex,s.chunks,inds)
+    map(chunkrange) do cr
+        Colon()(extrema(cr)...)
+    end
+end
+
+
+function ProjectionTarget(::Type{<:RegularGridTree},x,y,trans=UnitSphereFromGeographic();chunksize=256)
+    tree = RegularGridTree(x,y,trans)
+    xchunk = x[1:chunksize:end]
+    ychunk = y[1:chunksize:end]
+    chunktree = RegularGridTree(xchunk,ychunk,trans)
+    ProjectionTarget(tree,chunktree)
+end
+Base.ndims(::Type{RegularGridTree}) = 2

@@ -41,27 +41,20 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionSource)
     printstyled(io, "ProjectionSource{$T}($dims_str, $treestring)", color=:cyan)
 end
 
-function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims = (DD.XDim,DD.YDim))
-    tree = RegularGridTree(ar,spatial_dims)
-    lookups = map(DD.format,DD.dims(ar,spatial_dims))
-    chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
-        DD.rebuild(d,c)
-    end
-    xchunks,ychunks = DD.dims(chunks,spatial_dims)
-    xchunkbnds = vcat(tree.x[first.(xchunks.val)], last(tree.x))
-    ychunkbnds = vcat(tree.y[first.(ychunks.val)], last(tree.y))
-    chunktree = RegularGridTree(xchunkbnds,ychunkbnds)
-    ProjectionSource(ar,tree,chunktree,lookups,chunks)
+struct ProjectionTarget{T,CT}
+    tree::T
+    chunktree::CT
+end
+function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
+    # First line: Show tree constructor in copy-pastable format
+    b = IOBuffer()
+    bcompact = IOContext(b, :compact => true)
+    show(bcompact,ps.tree)
+    treestring = String(take!(b))
+
+    printstyled(io, "ProjectionSource($treestring)", color=:cyan)
 end
 
-#Compute indices given a chunk index for the high-resolution tree
-function indices_from_chunk(s::ProjectionSource{<:Any,<:RegularGridTree}, target_chunk)
-    inds = index_to_cartesian(target_chunk, s.chunktree)
-    chunkrange = map(getindex,s.chunks,inds)
-    map(chunkrange) do cr
-        Colon()(extrema(cr)...)
-    end
-end
 
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     
@@ -75,11 +68,12 @@ end
 
 function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
 
-    target_smalltree = get_subtree(target.tree,targetinds)
+    target_smalltree = TreeNode(target.tree,targetinds)
     circle = get_gridextent(target.tree, targetinds...)
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
     depth_first_search(pred, rootnode(source.chunktree)) do n
+        
         test_intersect_highres(source,target_smalltree, n) && push!(res, n)
     end
     res
@@ -87,7 +81,7 @@ end
 
 function test_intersect_highres(source,target_smalltree,sourcechunk)
     ssmallinds = indices_from_chunk(source, sourcechunk)
-    source_smalltree = get_subtree(source.tree,ssmallinds)
+    source_smalltree = TreeNode(source.tree,ssmallinds)
     any_intersect(target_smalltree, source_smalltree)
 end
 
@@ -99,6 +93,13 @@ end
 function LazyProjectedDiskArray(source,target)
     LazyProjectedDiskArray{eltype(source.ar),ndims(target.tree),typeof(source),typeof(target)}(source,target)
 end
+function DiskArrays.eachchunk(a::LazyProjectedDiskArray)
+    gs = gridsize(a.target.tree)
+    cgs = gridsize(a.target.chunktree)
+    cs = Int.(gs./cgs)
+    DiskArrays.GridChunks(a,cs)
+end
+DiskArrays.haschunks(::LazyProjectedDiskArray) = DiskArrays.Chunked()
 Base.size(a::LazyProjectedDiskArray) = gridsize(a.target.tree)
 Base.ndims(a::LazyProjectedDiskArray) = ndims(a.target.tree)
 
@@ -155,12 +156,6 @@ function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffe
     compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
 end
 
-
-
-
-
-
-
 function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
     outarray = OffsetArray(aout, targetinds...)
     chunks = compute_connected_chunks(a.source, a.target,targetinds)
@@ -173,14 +168,14 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::Abst
 end
 
 function reproject!(target_array,source,target)
-    #this assumes there are only x and y axis
+    #this assumes there are only spatial axes
     lazyarray = LazyProjectedDiskArray(source,target)
     targetchunks = eachchunk(target_array)
     index_arraybuffer = make_indexbuffer(source.tree, target.tree)
     aout = zeros(eltype(target_array.data), length.(first(targetchunks))...)
     @showprogress for targetchunk in targetchunks
         DiskArrays.readblock!(lazyarray, aout, targetchunk...; index_arraybuffer)
-        target_array.data[targetchunk...] = aout
+        target_array[targetchunk...] = aout
     end
 end
 

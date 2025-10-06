@@ -1,7 +1,7 @@
 function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
     alllinind = LinearIndices(gridsize(targettree))
-    
     Threads.@threads for targetindex in CartesianIndices(targetinds)
+    #for targetindex in CartesianIndices(targetinds)
         ind = alllinind[targetindex]
         unit = index_to_unitsphere(ind, targettree)
         sourcecoords = isourcetrans(unit)
@@ -23,10 +23,11 @@ function load_sourcechunks(source,chunks)
         data = OffsetArray(aout,sourceindices...)
         chunk_cartindex => data
     end
+    nsource = ndims(source.ar.data)
     i1,i2 = extrema(first,input_chunks)
     s = (i2.-i1+oneunit(i1)).I
     et = typeof(last(first(input_chunks)))
-    sourcearrays = OffsetArray(Matrix{et}(undef,s...),(i1-oneunit(i1)).I...)
+    sourcearrays = OffsetArray(Array{et,nsource}(undef,s...),(i1-oneunit(i1)).I...)
     for (i,a) in input_chunks
         sourcearrays[i]=a
     end
