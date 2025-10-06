@@ -3,6 +3,7 @@ using GeometryOps.UnitSpherical: UnitSpherical, _contains, _intersects, UnitSphe
 import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices_extents,
     query, sanitize_predicate, node_extent, depth_first_search
 import GeometryOps: extent
+import StaticArrays: @SVector
 import GeometryOps.Extents: Extent, bounds
 import LinearAlgebra: norm
 import DimensionalData as DD
@@ -118,6 +119,17 @@ function child_indices_extents(tree::TreeNode)
 end
 nleaf(t::RegularGridTree) = (length(t.x)-1)*(length(t.y)-1)
 
+function node_to_polygon_unitsphere(i::TreeNode)
+    x1,x2 = i.index.x
+    y1,y2 = i.index.y
+    xr = i.grid.x
+    yr = i.grid.y
+    poly = @SVector [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
+    # Get the child face at index `k`, 
+    # that has a transformation back to the unit sphere.
+    i.grid.trans.(poly)
+end
+
 function circle_from_extent_1(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
     cx,cy = (x2 + x1) / 2, (y2 + y1) / 2
@@ -167,7 +179,7 @@ end
 # end
 
 
-function get_subtree(tree::RegularGridTree,targetinds)
+function TreeNode(tree::RegularGridTree,targetinds)
     r1,r2 = targetinds
     ix1,ix2 = first(r1), last(r1)
     iy1,iy2 = first(r2), last(r2)

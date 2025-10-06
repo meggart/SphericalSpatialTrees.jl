@@ -74,30 +74,26 @@ function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)
     index_to_polygon_unitsphere(CartesianIndex(i,j,k),t)
 end
 
+
 function index_to_polygon_unitsphere(i::CartesianIndex,t::ISEACircleTree)
-    xr,yr = get_xyranges(t)
     i,j,k = i.I
-    poly = #=@SVector =#[(xr[i], yr[j]), (xr[i+1], yr[j]), (xr[i+1], yr[j+1]), (xr[i], yr[j+1]), (xr[i], yr[j])]
-    # Get the child face at index `k`, 
-    # that has a transformation back to the unit sphere.
-    getchild(t,k).grid.trans.(poly)
+    node = TreeNode(t,(i,j,k))
+    node_to_polygon_unitsphere(node)
 end
 
 """
-    get_subtree(source_tree, target_chunk, target_tree)
+    TreeNode(tree, target_indices)
 
-Expands the target chunk to to the full subtree containing all grid cells at the target resolution.
+Returns a Tree node that contains the indices given in target_indices.
 """
-function get_subtree(tree::ISEACircleTree, target_indices)
+function TreeNode(tree::ISEACircleTree, target_indices)
     ix,iy,n = target_indices
     if length(n) > 1
         return rootnode(tree)
     end
-    gridtree = getchild(tree, n).grid
-    xsub = gridtree.x[ix]
-    ysub = gridtree.y[iy]
-    trsmall = RegularGridTree(xsub,ysub,gridtree.trans,gridtree.tag)
-    rootnode(trsmall)
+    grid = getchild(tree, n).grid
+    index = TreeIndex((first(ix),last(ix)+1),(first(iy),last(iy)+1))
+    TreeNode(grid,index)
 end
 
 
@@ -165,20 +161,3 @@ function indices_from_chunk(s::ProjectionSource{<:Any,<:ISEACircleTree}, target_
         Colon()(extrema(cr)...)
     end
 end
-
-# """
-#     indices_from_chunk(s::ISEASourceOrTarget, target_indices)
-
-# For a given index from the chunk tree, returns the cartesian index ranges 
-# in the high-resolution tree
-# """
-# function indices_from_chunk(s::ISEASource, target_chunk)
-#     ix, iy, n = lin_to_cart(target_chunk + 1, s.chunktree)
-#     resolution_difference = s.tree.resolution - s.chunktree.resolution
-#     fac = 2^resolution_difference
-#     ix1 = (ix - 1) * fac + 1
-#     iy1 = (iy - 1) * fac + 1
-#     ix2 = ix1 + fac
-#     iy2 = iy1 + fac
-#     return ix1:ix2, iy1:iy2, n
-# end

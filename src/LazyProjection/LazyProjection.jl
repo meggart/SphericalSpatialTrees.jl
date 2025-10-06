@@ -68,7 +68,7 @@ end
 
 function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
 
-    target_smalltree = get_subtree(target.tree,targetinds)
+    target_smalltree = TreeNode(target.tree,targetinds)
     circle = get_gridextent(target.tree, targetinds...)
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
@@ -81,7 +81,7 @@ end
 
 function test_intersect_highres(source,target_smalltree,sourcechunk)
     ssmallinds = indices_from_chunk(source, sourcechunk)
-    source_smalltree = get_subtree(source.tree,ssmallinds)
+    source_smalltree = TreeNode(source.tree,ssmallinds)
     any_intersect(target_smalltree, source_smalltree)
 end
 

@@ -5,4 +5,5 @@ using Test
     include("native.jl")
     include("trees.jl")
     include("test_show_methods.jl")
+    include("iseatree.jl")
 end
