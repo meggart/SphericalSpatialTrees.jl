@@ -59,11 +59,28 @@ RegularGridTree(x, y, transform=UnitSphereFromGeographic()) = RegularGridTree(x,
 Convenience constructor to create a unitspherical spatial search tree from an AbstractDimArray. The spatial dimension
 names can be passed as a tuple of symbols. Tries to guess cell boundaries. 
 """
-function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=DD.dims(ar, (DD.XDim, DD.YDim)); transform=UnitSphereFromGeographic())
-    xr,yr = map(spatial_dims) do d
-        boundrangefromcenters(DD.dims(ar,d))
+function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=(DD.XDim, DD.YDim); transform=UnitSphereFromGeographic())
+    ar_spatial_dims = DD.dims(ar, spatial_dims)
+    if isnothing(ar_spatial_dims) || any(isnothing, ar_spatial_dims)
+        dimstrings = map(spatial_dims) do d
+            dtype = if d isa Type
+                d
+            else
+                typeof(d)
+            end
+            sprint(io -> Base.show_type_name(io, Core.typename(dtype)))
+        end
+
+        error("""
+            You requested the spatial dims
+            `$(join(dimstrings, ", "))`
+            but they could not be found in your dimarray with dims
+            `$(join(map(DD.name, DD.dims(ar)), ", "))`.
+            Please pass `spatial_dims` that exist within the array.
+        """)
     end
-    RegularGridTree(xr, yr, transform)
+    xr, yr = map(boundrangefromcenters, ar_spatial_dims)
+    return RegularGridTree(xr, yr, transform)
 end
 
 get_tag(r::RegularGridTree) = r.tag
