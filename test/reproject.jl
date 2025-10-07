@@ -43,7 +43,7 @@ targettypes = [SST.ISEACircleTree]
 
 for sourcetype in sourcetypes
     for targettype in targettypes
-    
+    @testset "$sourcetype to $targettype" begin
         targetargs = get_targetargs(targettype)
         targetkwargs = get_targetkwargs(targettype)
 
