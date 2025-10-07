@@ -72,7 +72,9 @@ for sourcetype in sourcetypes
         end
 
         for inds in testindices_2d
-            @test projar[inds...] == closest_vals[inds...]
+        	@testset let inds = inds
+            	@test projar[inds...] == closest_vals[inds...]
+          	end
         end
     end
 end
