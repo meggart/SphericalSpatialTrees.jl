@@ -51,7 +51,7 @@ for sourcetype in sourcetypes
         source = SST.ProjectionSource(sourcetype,a)
         target = SST.ProjectionTarget(targettype,targetargs...;targetkwargs...)
 
-        projar = SST.LazyProjectedDiskArray(source,target)
+        projar = @test_nowarn SST.LazyProjectedDiskArray(source,target)
 
         # We first compute the "true" results by reprojecting every point from target to source
         targetcoords_unitsphere = (SST.index_to_unitsphere.(LinearIndices(projar),(target.tree,)))
