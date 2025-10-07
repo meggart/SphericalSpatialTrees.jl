@@ -3,7 +3,6 @@ import SphericalSpatialTrees as SST
 import DimensionalData as DD
 import DiskArrays
 
-@testset "Reprojection" begin
 function make_testarray(::Type{<:SST.ISEACircleTree})
     a = DiskArrays.mockchunks(rand(4,4,10),(2,2,1))
     d = DD.Dim{:dggs_i}(0:3),DD.Dim{:dggs_j}(0:3),DD.Dim{:n}(0:9)
@@ -18,6 +17,7 @@ get_targetargs(::Type{<:SST.RegularGridTree}) = (-180.0:30.0:180.0,90.0:-30.0:-9
 get_targetkwargs(::Type{<:SST.RegularGridTree}) = (;chunksize=5)
 get_targetargs(::Type{<:SST.ISEACircleTree}) = (2,1)
 get_targetkwargs(::Type{<:SST.ISEACircleTree}) = (;)
+@testset "Reprojection" begin
 
 testindices_3d = [
     (1,1,1),
