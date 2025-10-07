@@ -71,7 +71,7 @@ for sourcetype in sourcetypes
             error()
         end
 
-        for inds in testindices_2d
+        for inds in testindices
         	@testset let inds = inds
             	@test projar[inds...] == closest_vals[inds...]
           	end
