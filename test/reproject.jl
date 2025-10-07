@@ -53,7 +53,7 @@ for sourcetype in sourcetypes
 
         projar = SST.LazyProjectedDiskArray(source,target)
 
-        #We first compute the "true" results by reprojecting every point from target to source
+        # We first compute the "true" results by reprojecting every point from target to source
         targetcoords_unitsphere = (SST.index_to_unitsphere.(LinearIndices(projar),(target.tree,)))
         targetcoords_sourcecrs = inv(SST.get_projection(source.tree)).(targetcoords_unitsphere)
         closest_inds = map(targetcoords_sourcecrs) do tc
