@@ -6,7 +6,7 @@
 
 SphericalSpatialTrees provides spatial tree data structures and projection utilities for regridding and querying geospatial data between different projections, e.g., between rasters in a geographical projection and a Discrete Global Grid System.
 
-Required chunks from the other array are identified using quad tree search lazyly on request.
+Required chunks from the other array are identified using quad tree search lazily on request.
 Chunk intersection is tested based on the spherical caps of thier chunk boundaries.
 The regridding itself is done using nearest neighbor search. 
 
