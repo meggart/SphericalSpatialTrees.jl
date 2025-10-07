@@ -68,7 +68,7 @@ for sourcetype in sourcetypes
         elseif ndims(projar) == 3
             testindices_3d
         else
-            error()
+            error("Only two or three-dimensional arrays are supported. You have given an array with $(ndims(projar)) dimensions.")
         end
 
         for inds in testindices
