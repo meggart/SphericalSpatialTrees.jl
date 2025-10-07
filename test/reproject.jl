@@ -77,5 +77,6 @@ for sourcetype in sourcetypes
           	end
         end
     end
+    end
 end
 end
