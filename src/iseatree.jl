@@ -148,9 +148,7 @@ function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,
     yrmid = range(first(tree.yr)+hsy,last(tree.yr)-hsy,ny)
     lookups = DD.Dim{:dggs_i}(xrmid), DD.Dim{:dggs_j}(yrmid),  DD.Dim{:dggs_n}(1:10)
     lookups = DD.format.(lookups)
-    xchunks,ychunks,nchunks = map(spatial_dims) do sd
-        DD.dims(chunks,sd)
-    end
+    xchunks,ychunks,nchunks = DD.dims(chunks, spatial_dims)
     @assert xchunks.val == ychunks.val "Chunks in x and y must be equal"
     chunkres = Int(log2(length(xchunks)))
     chunktree = ISEACircleTree(isea,chunkres)

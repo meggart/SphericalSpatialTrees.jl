@@ -5,7 +5,7 @@ import DiskArrays
 
 function make_testarray(::Type{<:SST.ISEACircleTree})
     a = DiskArrays.mockchunks(rand(4,4,10),(2,2,1))
-    d = DD.Dim{:dggs_i}(0:3),DD.Dim{:dggs_j}(0:3),DD.Dim{:n}(0:9)
+    d = DD.Dim{:dggs_i}(0:3),DD.Dim{:dggs_j}(0:3),DD.Dim{:dggs_n}(0:9)
     DD.DimArray(a,d)
 end
 function make_testarray(::Type{<:SST.RegularGridTree})
@@ -17,6 +17,12 @@ get_targetargs(::Type{<:SST.RegularGridTree}) = (-180.0:30.0:180.0,90.0:-30.0:-9
 get_targetkwargs(::Type{<:SST.RegularGridTree}) = (;chunksize=5)
 get_targetargs(::Type{<:SST.ISEACircleTree}) = (2,1)
 get_targetkwargs(::Type{<:SST.ISEACircleTree}) = (;)
+get_targetargs(::Type{<:SST.WebMercatorTree}) = (4,)
+get_targetkwargs(::Type{<:SST.WebMercatorTree}) = (;chunksize=4)
+get_sourceargs(::Type{<:SST.ISEACircleTree}) = ()
+get_sourceargs(::Type{<:SST.RegularGridTree}) = ((:lon,:lat),)
+
+
 @testset "Reprojection" begin
 
 testindices_3d = [
@@ -38,17 +44,18 @@ testindices_2d = [
     (:,:),
 ]
 
-sourcetypes = [SST.RegularGridTree]
-targettypes = [SST.ISEACircleTree]
+sourcetypes = [SST.RegularGridTree, SST.ISEACircleTree]
+targettypes = [SST.RegularGridTree, SST.ISEACircleTree, SST.WebMercatorTree]
 
 for sourcetype in sourcetypes
     for targettype in targettypes
     @testset "$sourcetype to $targettype" begin
         targetargs = get_targetargs(targettype)
         targetkwargs = get_targetkwargs(targettype)
+        sourceargs = get_sourceargs(sourcetype)
 
         a = make_testarray(sourcetype)
-        source = SST.ProjectionSource(sourcetype, a, (DD.Dim{:lon}, DD.Dim{:lat}))
+        source = SST.ProjectionSource(sourcetype, a, sourceargs... )
         target = SST.ProjectionTarget(targettype, targetargs...; targetkwargs...)
 
         projar = @test_nowarn SST.LazyProjectedDiskArray(source, target)
