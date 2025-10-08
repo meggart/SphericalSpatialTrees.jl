@@ -147,7 +147,7 @@ function node_to_polygon_unitsphere(i::TreeNode)
     y1,y2 = i.index.y
     xr = i.grid.x
     yr = i.grid.y
-    poly = @SVector [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
+    poly = #= @SVector =# [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
     # Get the child face at index `k`, 
     # that has a transformation back to the unit sphere.
     i.grid.trans.(poly)
