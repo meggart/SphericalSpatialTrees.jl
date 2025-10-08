@@ -2,10 +2,11 @@ using Test
 import SphericalSpatialTrees as SST
 import DimensionalData as DD
 import DiskArrays
+import Zarr
 
 function make_testarray(::Type{<:SST.ISEACircleTree})
     a = DiskArrays.mockchunks(rand(4,4,10),(2,2,1))
-    d = DD.Dim{:dggs_i}(0:3),DD.Dim{:dggs_j}(0:3),DD.Dim{:dggs_n}(0:9)
+    d = DD.dims(SST.ISEACircleTree(2))
     DD.DimArray(a,d)
 end
 function make_testarray(::Type{<:SST.RegularGridTree})
@@ -83,6 +84,12 @@ for sourcetype in sourcetypes
                 @test projar[inds...] == closest_vals[inds...]
             end
         end
+        # Now let's try to reproject into a file
+        p = tempname()
+        output = SST.create_dataset(target, p, arrayname=:data, backend=:zarr)
+        SST.reproject!(output, source, target)
+        zarrgroup = Zarr.zopen(p)
+        @test Array(zarrgroup["data"]) == closest_vals
     end
     end
 end

@@ -22,6 +22,13 @@ extent(::ISEACircleTree) = SphericalCap(UnitSphereFromGeographic()((0.0,0.0)),π
 isleaf(::ISEACircleTree) = false
 node_extent(t::ISEACircleTree) = extent(t)
 nleaf(t::ISEACircleTree) = 10*2^(2*t.resolution)
+function DD.dims(t::ISEACircleTree) 
+    n = 2^t.resolution
+    offs = 0.5/n
+    r = range(offs,1-offs,length=n)
+    (DD.X(r),DD.Y(r),DD.Dim{:n_isea}(1:10))
+end
+DD.dims(t::Type{<:ISEACircleTree}) = (DD.X(),DD.Y(),DD.Dim{:n_isea}())
 
 function Base.show(io::IO, tree::ISEACircleTree)
     elements = 10 * 4^tree.resolution
@@ -106,31 +113,7 @@ end
 
 
 
-
-function create_dataset(target::ProjectionTarget{<:ISEACircleTree}, 
-    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
-
-    back = YAXArrayBase.backendfrompath(path;driver=backend)
-    axnames = ("dggs_i","dggs_j","dggs_n")
-    cs = 2^(target.tree.resolution-target.chunktree.resolution)
-    group = YAXArrayBase.create_dataset(
-            back,
-            path,
-            datasetmeta,
-            axnames,
-            (0:(2^target.tree.resolution-1),0:(2^target.tree.resolution-1),0:9),
-            (Dict(),Dict(),Dict()),
-            (output_datatype,),
-            (string(arrayname),),
-            (axnames,),
-            (arraymeta,),
-            ((cs,cs,1),);
-            kwargs...
-        )
-    group[string(arrayname)]
-end
-
-function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,:dggs_j,:dggs_n))
+function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = DD.dims(ISEACircleTree))
     isea = ISEA()
     nx,ny,n = size(ar)
     @assert n == 10 "The target must have 10 faces, got $n"
@@ -142,11 +125,8 @@ function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = (:dggs_i,
     chunks = map(eachchunk(ar.data).chunks,DD.dims(ar)) do c,d
         DD.rebuild(d,c)
     end
-    hsx = step(tree.xr)/2
-    hsy = step(tree.yr)/2
-    xrmid = range(first(tree.xr)+hsx,last(tree.xr)-hsx,nx)
-    yrmid = range(first(tree.yr)+hsy,last(tree.yr)-hsy,ny)
-    lookups = DD.Dim{:dggs_i}(xrmid), DD.Dim{:dggs_j}(yrmid),  DD.Dim{:dggs_n}(1:10)
+
+    lookups = DD.dims(ar,spatial_dims)
     lookups = DD.format.(lookups)
     xchunks,ychunks,nchunks = DD.dims(chunks, spatial_dims)
     @assert xchunks.val == ychunks.val "Chunks in x and y must be equal"

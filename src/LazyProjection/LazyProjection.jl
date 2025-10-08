@@ -55,6 +55,33 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
     printstyled(io, "ProjectionSource($treestring)", color=:cyan)
 end
 
+function create_dataset(target::ProjectionTarget, 
+    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
+    
+    back = YAXArrayBase.backendfrompath(path;driver=backend)
+    dims = DD.dims(target.tree)
+    chunkdims = DD.dims(target.chunktree)
+    cs = map(dims,chunkdims) do d,cd
+        length(d) ÷ length(cd)
+    end
+    dimnames = string.(DD.name.(chunkdims))
+    group = YAXArrayBase.create_dataset(
+            back,
+            path,
+            datasetmeta,
+            dimnames,
+            map(d->d.val,dims),
+            (Dict(),Dict(),Dict()),
+            (output_datatype,),
+            (string(arrayname),),
+            (dimnames,),
+            (arraymeta,),
+            (cs,);
+            kwargs...
+        )
+    group[string(arrayname)]
+end
+
 
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     

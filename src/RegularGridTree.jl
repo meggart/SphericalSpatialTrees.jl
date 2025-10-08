@@ -22,6 +22,12 @@ function get_gridextent(t::RegularGridTree, xr::AbstractUnitRange, yr::AbstractU
     node_extent(t)
 end
 get_projection(t::RegularGridTree) = t.trans
+function DD.dims(r::RegularGridTree)
+    xmid,ymid = map((r.x,r.y)) do d
+        (d[1:end-1] .+ d[2:end])./2
+    end
+    DD.X(xmid),DD.Y(ymid)
+end
 
 function Base.show(io::IO, tree::RegularGridTree)
     # Check if this is a compact display (when used within other show methods)
