@@ -4,7 +4,7 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://meggart.github.io/SphericalSpatialTrees.jl/dev/)
 [![Build Status](https://github.com/meggart/SphericalSpatialTrees.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/meggart/SphericalSpatialTrees.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-SphericalSpatialTrees provides spatial tree data structures and projection utilities for regridding and querying geospatial data between different projections, e.g., between rasters in a geographical projection and a Discrete Global Grid System.
+SphericalSpatialTrees is a package for regridding and querying geospatial data between different projections, e.g., between rasters in a geographical projection and a Discrete Global Grid System.  It provides spatial tree data structures and projection utilities for this purpose.
 
 Required chunks from the other array are identified using quad tree search lazily on request.
 Chunk intersection is tested based on the spherical caps of thier chunk boundaries.
