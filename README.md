@@ -22,13 +22,13 @@ Pkg.add(url="https://github.com/meggart/SphericalSpatialTrees.jl")
 Create example raster data in equirectangular projection:
 
 ```julia
-import DiskArrays as DA
+import DiskArrays
 using DimensionalData
 
-lon_range = X(180:-1:-180)
-lat_range = Y(90:-1:-90)
-geo_array = [exp(cosd(lon)) + 3(lat / 90) for lon in lon_range, lat in lat_range]
-geo_array = DA.mockchunks(geo_array, (128, 128))
+lons = X(180:-1:-180)
+lats = Y(90:-1:-90)
+unchunked_geo_array = [exp(cosd(lon)) + 3 * (lat / 90) for lon in lons, lat in lats] # create a 'raster' dataset
+geo_array = DiskArrays.mockchunks(unchunked_geo_array, (128, 128)) # create 'fake' chunks
 ```
 
 Lazy regridding to a Discrete Global Grid System:
