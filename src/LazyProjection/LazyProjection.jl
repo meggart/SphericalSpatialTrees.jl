@@ -171,7 +171,7 @@ function reproject!(target_array,source,target)
     lazyarray = LazyProjectedDiskArray(source,target)
     targetchunks = eachchunk(target_array)
     index_arraybuffer = make_indexbuffer(source.tree, target.tree)
-    aout = zeros(eltype(target_array.data), length.(first(targetchunks))...)
+    aout = zeros(eltype(target_array), length.(first(targetchunks))...)
     @showprogress for targetchunk in targetchunks
         DiskArrays.readblock!(lazyarray, aout, targetchunk...; index_arraybuffer)
         target_array[targetchunk...] = aout
