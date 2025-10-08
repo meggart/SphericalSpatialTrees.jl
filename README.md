@@ -8,7 +8,7 @@ SphericalSpatialTrees is a package for regridding and querying geospatial data b
 
 Required chunks from the other array are identified using quad tree search lazily on request.
 Chunk intersection is tested based on the spherical caps of their chunk boundaries.
-The regridding itself is done using nearest neighbor search. 
+The regridding itself is currently done using nearest neighbor search, though other methods (area-conserving, etc.) could also be used. 
 
 ## Get Started
 
