@@ -24,7 +24,7 @@ end
 function index_to_polygon_lonlat(i, t)
     unitsphere_poly = index_to_polygon_unitsphere(i, t)
     lonlat = GeographicFromUnitSphere().(unitsphere_poly)
-    lonlat_poly = GI.Polygon(#=@SVector =# [GI.LineString(lonlat; crs = GFT.EPSG(4326))]; crs = GFT.EPSG(4326))
+    lonlat_poly = GI.Polygon(@SVector [GI.LineString(lonlat; crs = GFT.EPSG(4326))]; crs = GFT.EPSG(4326))
     return lonlat_poly
 end
 

@@ -55,6 +55,33 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
     printstyled(io, "ProjectionSource($treestring)", color=:cyan)
 end
 
+function create_dataset(target::ProjectionTarget, 
+    path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
+    
+    back = YAXArrayBase.backendfrompath(path;driver=backend)
+    dims = DD.dims(target.tree)
+    chunkdims = DD.dims(target.chunktree)
+    cs = map(dims,chunkdims) do d,cd
+        length(d) ÷ length(cd)
+    end
+    dimnames = string.(DD.name.(chunkdims))
+    group = YAXArrayBase.create_dataset(
+            back,
+            path,
+            datasetmeta,
+            dimnames,
+            map(d->d.val,dims),
+            (Dict(),Dict(),Dict()),
+            (output_datatype,),
+            (string(arrayname),),
+            (dimnames,),
+            (arraymeta,),
+            (cs,);
+            kwargs...
+        )
+    group[string(arrayname)]
+end
+
 
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     
@@ -73,7 +100,6 @@ function compute_connected_chunks(source::ProjectionSource, target::ProjectionTa
     pred = Base.Fix1(_intersects, circle)
     res = Int[]
     depth_first_search(pred, rootnode(source.chunktree)) do n
-        
         test_intersect_highres(source,target_smalltree, n) && push!(res, n)
     end
     res
@@ -172,7 +198,7 @@ function reproject!(target_array,source,target)
     lazyarray = LazyProjectedDiskArray(source,target)
     targetchunks = eachchunk(target_array)
     index_arraybuffer = make_indexbuffer(source.tree, target.tree)
-    aout = zeros(eltype(target_array.data), length.(first(targetchunks))...)
+    aout = zeros(eltype(target_array), length.(first(targetchunks))...)
     @showprogress for targetchunk in targetchunks
         DiskArrays.readblock!(lazyarray, aout, targetchunk...; index_arraybuffer)
         target_array[targetchunk...] = aout

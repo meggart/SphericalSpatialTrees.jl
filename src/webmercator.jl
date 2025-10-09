@@ -33,9 +33,10 @@ function WebMercatorTree(max_level)
     RegularGridTree(r,r,p)
 end
 
-function ProjectionTarget(::Type{<:WebMercatorTree},target_resolution)
+function ProjectionTarget(::Type{<:WebMercatorTree},target_resolution;chunksize=256)
     tree = WebMercatorTree(target_resolution)
-    chunktree = WebMercatorTree(target_resolution-8)
+    clev = Int(log2(chunksize))
+    chunktree = WebMercatorTree(target_resolution-clev)
     ProjectionTarget(tree,chunktree)
 end
 Base.ndims(::Type{WebMercatorTree}) = 2

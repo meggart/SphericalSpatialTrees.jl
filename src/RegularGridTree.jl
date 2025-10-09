@@ -22,6 +22,12 @@ function get_gridextent(t::RegularGridTree, xr::AbstractUnitRange, yr::AbstractU
     node_extent(t)
 end
 get_projection(t::RegularGridTree) = t.trans
+function DD.dims(r::RegularGridTree)
+    xmid,ymid = map((r.x,r.y)) do d
+        (d[1:end-1] .+ d[2:end])./2
+    end
+    DD.X(xmid),DD.Y(ymid)
+end
 
 function Base.show(io::IO, tree::RegularGridTree)
     # Check if this is a compact display (when used within other show methods)
@@ -59,11 +65,28 @@ RegularGridTree(x, y, transform=UnitSphereFromGeographic()) = RegularGridTree(x,
 Convenience constructor to create a unitspherical spatial search tree from an AbstractDimArray. The spatial dimension
 names can be passed as a tuple of symbols. Tries to guess cell boundaries. 
 """
-function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=DD.dims(ar, (DD.XDim, DD.YDim)); transform=UnitSphereFromGeographic())
-    xr,yr = map(spatial_dims) do d
-        boundrangefromcenters(DD.dims(ar,d))
+function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=(DD.XDim, DD.YDim); transform=UnitSphereFromGeographic())
+    ar_spatial_dims = DD.dims(ar, spatial_dims)
+    if isnothing(ar_spatial_dims) || any(isnothing, ar_spatial_dims)
+        dimstrings = map(spatial_dims) do d
+            dtype = if d isa Type
+                d
+            else
+                typeof(d)
+            end
+            sprint(io -> Base.show_type_name(io, Core.typename(dtype)))
+        end
+
+        error("""
+            You requested the spatial dims
+            `$(join(dimstrings, ", "))`
+            but they could not be found in your dimarray with dims
+            `$(join(map(DD.name, DD.dims(ar)), ", "))`.
+            Please pass `spatial_dims` that exist within the array.
+        """)
     end
-    RegularGridTree(xr, yr, transform)
+    xr, yr = map(boundrangefromcenters, ar_spatial_dims)
+    return RegularGridTree(xr, yr, transform)
 end
 
 get_tag(r::RegularGridTree) = r.tag
@@ -124,7 +147,7 @@ function node_to_polygon_unitsphere(i::TreeNode)
     y1,y2 = i.index.y
     xr = i.grid.x
     yr = i.grid.y
-    poly = @SVector [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
+    poly = #= @SVector =# [(xr[x1], yr[y1]), (xr[x2], yr[y1]), (xr[x2], yr[y2]), (xr[x1], yr[y2]), (xr[x1], yr[y1])]
     # Get the child face at index `k`, 
     # that has a transformation back to the unit sphere.
     i.grid.trans.(poly)

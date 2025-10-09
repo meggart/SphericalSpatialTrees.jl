@@ -7,4 +7,5 @@ using Test
     include("test_show_methods.jl")
     include("regulargridtree.jl")
     include("iseatree.jl")
+    include("reproject.jl")
 end
