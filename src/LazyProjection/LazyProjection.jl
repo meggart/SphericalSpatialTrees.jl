@@ -13,10 +13,13 @@ function mayberound(x,st)
     (xrnd-x)/x < 1e-9 ? xrnd : x
 end
 function boundrangefromcenters(x)
-    lb = mayberound(first(x) - step(x)/2, step(x))
-    ub = mayberound(last(x)+step(x)/2,step(x))
+    st = pseudostep(x)
+    lb = mayberound(first(x) - st / 2, st)
+    ub = mayberound(last(x) + st / 2, st)
     range(lb,ub,length(x)+1)
 end
+pseudostep(a::AbstractRange) = step(a)
+pseudostep(a::AbstractVector) = length(a) > 1 ? (last(a) - first(a)) / (length(a)-1) : one(eltype(a))
 
 
 struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}

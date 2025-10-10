@@ -85,7 +85,7 @@ function RegularGridTree(ar::DD.AbstractDimArray, spatial_dims=(DD.XDim, DD.YDim
             Please pass `spatial_dims` that exist within the array.
         """)
     end
-    xr, yr = map(boundrangefromcenters, ar_spatial_dims)
+    xr, yr = map(x->boundrangefromcenters(x.val), ar_spatial_dims)
     return RegularGridTree(xr, yr, transform)
 end
 
