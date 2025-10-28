@@ -1,16 +1,31 @@
+function transform_item(targetindex, isourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks)
+    ind = alllinind[targetindex]
+    unit = index_to_unitsphere(ind, targettree)
+    sourcecoords = isourcetrans(unit)
+    sourceindices = map(sourcecoords,lookups) do coord,look
+        DD.selectindices(look, DD.Near(coord))
+    end
+    chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
+    cI = CartesianIndex(chunkindices)
+    outar[targetindex] = sourcearrays[cI][sourceindices...]
+end
+
 function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
     alllinind = LinearIndices(gridsize(targettree))
-    Threads.@threads for targetindex in CartesianIndices(targetinds)
-    #for targetindex in CartesianIndices(targetinds)
-        ind = alllinind[targetindex]
-        unit = index_to_unitsphere(ind, targettree)
-        sourcecoords = isourcetrans(unit)
-        sourceindices = map(sourcecoords,lookups) do coord,look
-            DD.selectindices(look, DD.Near(coord))
+    #Threads.@threads for targetindex in CartesianIndices(targetinds)
+    if allow_threaded_transformation(isourcetrans)
+        Threads.@threads for targetindex in CartesianIndices(targetinds)
+            transform_item(targetindex, isourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks)
         end
-        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
-        cI = CartesianIndex(chunkindices)
-        outar[targetindex] = sourcearrays[cI][sourceindices...]
+    else
+        targetinds_split = Iterators.partition(CartesianIndices(targetinds),length(targetinds)÷Threads.nthreads())
+        foreach(targetinds_split) do indsubset
+            with_transform(isourcetrans) do mytrans 
+                for targetindex in indsubset
+                    transform_item(targetindex, mytrans, alllinind, targettree,lookups,outar,sourcearrays,chunks)
+                end
+            end
+        end
     end
     outar
 end
