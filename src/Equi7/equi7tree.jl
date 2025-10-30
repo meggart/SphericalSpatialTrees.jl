@@ -5,26 +5,26 @@ import ..SphericalSpatialTrees as SST
 import DimensionalData as DD
 import CoordinateTransformations as CT
 import Proj
+import CoordinateTransformations: Transformation, ∘
 using Statistics: median
 
 const MAX_N_TILE = ((114, 93),(97, 87),(115, 96),(82, 55),(133, 98),(187, 121),(116, 105))
 const MAX_SIZE = maximum(first,MAX_N_TILE)+1,maximum(last,MAX_N_TILE)+1
 const ZONES = ("AF","AN","AS","EU","NA","OC","SA")
 const CODES = 27701:27707
-const EQUI7Trans = SST.TransformationChannel{CT.ComposedTransformation{Proj.Transformation, GeographicFromUnitSphere}, CT.ComposedTransformation{UnitSphereFromGeographic, Proj.Transformation}}[]
-const EQUI7ITrans = SST.TransformationChannel{CT.ComposedTransformation{Proj.Transformation, GeographicFromUnitSphere}, CT.ComposedTransformation{UnitSphereFromGeographic, Proj.Transformation}}[]
+const EQUI7Trans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
+const EQUI7ITrans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
 const TILECOORDS = [include("tiles/$zone") for zone in ZONES]
 struct EQUI7Tag 
     zone::Int
     resolution::Int
 end
 
+
 function __init__()
-    for code in CODES
-        t = SST.init_threaded_proj_epsg(code)
-        push!(EQUI7Trans,t)
-        push!(EQUI7ITrans,inv(t))
-    end
+    t = SST.init_threaded_proj_collection_epsg(CODES)
+    push!(EQUI7Trans,t)
+    push!(EQUI7ITrans,inv(t))
 end
 
 function coord_to_circle((i,j),itrans)
@@ -42,7 +42,7 @@ end
 function get_tilenode(coord,resolution,zone)
     x = range(coord[1]*1e5,(coord[1]+1)*1e5,length=resolution+1)
     y = range(coord[2]*1e5,(coord[2]+1)*1e5,length=resolution+1)
-    SST.rootnode(SST.RegularGridTree(x,y,EQUI7ITrans[zone],EQUI7Tag(zone,resolution)))
+    SST.rootnode(SST.RegularGridTree(x,y,EQUI7ITrans ∘ SST.PickPlane(zone),EQUI7Tag(zone,resolution)))
 end
 
 
@@ -87,7 +87,7 @@ function nodefromzone(zone,resolution)
     izone = findfirst(==(zone),ZONES)
     allcoords = TILECOORDS[izone]
     indices = collect(1:length(allcoords))
-    allextents = coord_to_circle.(allcoords,(EQUI7ITrans[izone],))
+    allextents = coord_to_circle.(allcoords,(EQUI7ITrans[1] ∘ SST.PickPlane(izone),))
     alltilenodes = get_tilenode.(allcoords,resolution,izone);
     build_node(indices,allcoords,allextents,alltilenodes)
 end
@@ -105,6 +105,7 @@ end
 SST.rootnode(tree::Equi7Tree) = tree.rootnode
 Base.ndims(::Equi7Tree) = 3
 SST.gridsize(tree::Equi7Tree) = ((MAX_SIZE .* tree.resolution)...,7)
+SST.get_projection(::Equi7Tree) = EQUI7ITrans[1]
 function DD.dims(t::Equi7Tree) 
     n = t.resolution
     offs = 1e5/2/n
@@ -123,14 +124,12 @@ function SST.linind(tag::EQUI7Tag, tree::SST.TreeNode)
     ind
 end
 
-function SST.index_to_unitsphere(i,tree::Equi7Tree)
+function SST.index_to_native_coords(i,tree::Equi7Tree)
     n = tree.resolution .* MAX_SIZE
     ix,iy,zone = CartesianIndices((first(n),last(n), 7))[i].I
     x,y = ((ix,iy).-1) .* (1e5/tree.resolution) .+ (5e4/tree.resolution)
-    (UnitSphereFromGeographic() ∘ EQUI7ITrans[zone])((x,y))
+    (x,y,zone)
 end
-
-
 
 
 function SST.ProjectionSource(::Type{<:Equi7Tree}, ar, spatial_dims = (DD.XDim,DD.YDim,:zone))
@@ -170,7 +169,7 @@ function SST.TreeNode(tree::Equi7Tree, target_indices)
     end
     xr = range(0.0,MAX_SIZE[1]*1e5,length=(MAX_SIZE[1]*tree.resolution)+1)
     yr = range(0.0,MAX_SIZE[2]*1e5,length=(MAX_SIZE[2]*tree.resolution)+1)
-    grid = SST.RegularGridTree(xr,yr,EQUI7ITrans[only(n)],EQUI7Tag(only(n),tree.resolution))
+    grid = SST.RegularGridTree(xr,yr,EQUI7ITrans[1] ∘ SST.PickPlane(only(n)),EQUI7Tag(only(n),tree.resolution))
     index = SST.TreeIndex((first(ix),last(ix)+1),(first(iy),last(iy)+1))
     SST.TreeNode(grid,index)
 end

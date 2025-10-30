@@ -1,4 +1,5 @@
 import Proj
+import CoordinateTransformations: Transformation
 struct TransformationChannel{T1,T2} <: Function
     isinv::Bool
     transforms::Channel{Tuple{T1,T2}}
@@ -26,11 +27,27 @@ function with_transform(f,t::TransformationChannel)
         put!(t.transforms,tt)
     end
 end
+#Generic fallback
+with_transform(f,t) = f(t)
+
 function init_threaded_proj_epsg(epsg_code)
     TransformationChannel() do
         (
             Proj.Transformation("OGC:84","EPSG:$epsg_code") ∘ GeographicFromUnitSphere(),
             UnitSphereFromGeographic() ∘ inv(Proj.Transformation("OGC:84","EPSG:$epsg_code"))
         )
+    end
+end
+
+struct MultiZoneProjection{P} <: Transformation
+    projections::Vector{P}
+end
+(p::MultiZoneProjection)((x,y,zone)) = p.projections[zone]((x,y))
+
+function init_threaded_proj_collection_epsg(epsg_codes)
+    TransformationChannel() do
+        p = MultiZoneProjection([Proj.Transformation("OGC:84","EPSG:$epsg_code") ∘ GeographicFromUnitSphere() for epsg_code in epsg_codes])
+        pinv = MultiZoneProjection([UnitSphereFromGeographic() ∘ Proj.Transformation("EPSG:$epsg_code","OGC:84") for epsg_code in epsg_codes])
+        p,pinv
     end
 end

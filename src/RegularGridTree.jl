@@ -174,7 +174,7 @@ end
 get_step(x::AbstractRange) = step(x)
 get_step(x) = length(x) > 1 ? (x[2] - x[1]) : one(eltype(x))
 
-function index_to_lonlat(i::Integer,t::RegularGridTree{<:Any,<:Any,UnitSphereFromGeographic})
+function index_to_native_coords(i,t::RegularGridTree)
     xhalfstep = get_step(t.x) / 2
     yhalfstep = get_step(t.y) / 2
     i, j = index_to_cartesian(i, t)
@@ -183,23 +183,17 @@ function index_to_lonlat(i::Integer,t::RegularGridTree{<:Any,<:Any,UnitSphereFro
     x,y
 end
 
+function index_to_lonlat(i::Integer,t::RegularGridTree{<:Any,<:Any,UnitSphereFromGeographic})
+    index_to_native_coords(i,t)
+end
+
 index_to_cartesian(i::Integer, t::RegularGridTree) = CartesianIndices((length(t.x) - 1, length(t.y) - 1))[i].I
 
-function index_to_unitsphere(i::Integer,t::RegularGridTree)
-    xhalfstep = step(t.x) / 2
-    yhalfstep = step(t.y) / 2
-    i, j = index_to_cartesian(i, t)
-    x = t.x[i] + xhalfstep
-    y = t.y[j] + yhalfstep
-    t.trans((x,y))
+function index_to_unitsphere(i::Integer,t,projfunc = get_projection(t))
+    coords = index_to_native_coords(i,t)
+    projfunc(coords)
 end
-# function circle_from_extent_2(ex,trans)
-#     (x1, x2), (y1, y2) = bounds(ex)
-#     points = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
-#     cap1 = SphericalCap(points[1], points[2], points[3])
-#     cap2 = SphericalCap(points[2], points[3], points[4])
-#     UnitSpherical._merge(cap1, cap2)
-# end
+
 
 
 function TreeNode(tree::RegularGridTree,targetinds)

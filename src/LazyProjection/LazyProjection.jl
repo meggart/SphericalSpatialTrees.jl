@@ -194,7 +194,7 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::Abst
     outarray = OffsetArray(aout, targetinds...)
     chunks = compute_connected_chunks(a.source, a.target,targetinds)
     isourcetrans = inv(get_projection(a.source.tree))
-    if length(chunks) < 8
+    if length(chunks) < 100
         project_batched(a,outarray,chunks,isourcetrans,targetinds)
     else
         project_sequential(a,outarray,chunks,isourcetrans,targetinds;index_arraybuffer)
