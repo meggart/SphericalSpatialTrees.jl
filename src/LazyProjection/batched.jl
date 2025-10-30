@@ -1,16 +1,38 @@
+function transform_item(targetindex, isourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks,targettrans)
+    ind = alllinind[targetindex]
+    unit = index_to_unitsphere(ind, targettree, targettrans)
+    sourcecoords = isourcetrans(unit)
+    sourceindices = map(sourcecoords,lookups) do coord,look
+        DD.selectindices(look, DD.Near(coord))
+    end
+    chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
+    cI = CartesianIndex(chunkindices)
+    outar[targetindex] = sourcearrays[cI][sourceindices...]
+end
+
 function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcearrays, targettree, isourcetrans, lookups,chunks)
     alllinind = LinearIndices(gridsize(targettree))
-    Threads.@threads for targetindex in CartesianIndices(targetinds)
-    #for targetindex in CartesianIndices(targetinds)
-        ind = alllinind[targetindex]
-        unit = index_to_unitsphere(ind, targettree)
-        sourcecoords = isourcetrans(unit)
-        sourceindices = map(sourcecoords,lookups) do coord,look
-            DD.selectindices(look, DD.Near(coord))
+    #Threads.@threads for targetindex in CartesianIndices(targetinds)
+    targettrans = get_projection(targettree)
+    if allow_threaded_transformation(isourcetrans) && allow_threaded_transformation(targettrans)
+        Threads.@threads for targetindex in CartesianIndices(targetinds)
+            transform_item(targetindex, isourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks,targettrans)
         end
-        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
-        cI = CartesianIndex(chunkindices)
-        outar[targetindex] = sourcearrays[cI][sourceindices...]
+    else
+        targetcartind = CartesianIndices(targetinds)
+        targetinds_split = Iterators.partition(targetcartind,length(targetcartind)÷Threads.nthreads())
+        res = map(targetinds_split) do indsubset
+            with_transform(isourcetrans) do mysourcetrans 
+                with_transform(targettrans) do mytargettrans
+                    t = Threads.@spawn begin
+                        for targetindex in indsubset
+                            transform_item(targetindex, mysourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks,mytargettrans)
+                        end
+                    end
+                end
+            end
+        end
+        fetch.(res)
     end
     outar
 end

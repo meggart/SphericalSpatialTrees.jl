@@ -14,6 +14,11 @@ include("RegularGridTree.jl")
 include("iseatree.jl")
 #Webmercator implementation
 include("webmercator.jl")
+#TileTree abstraction
+include("tiletree.jl")
+#Equi7
+include("Equi7/equi7tree.jl")
+
 
 
 function index_to_lonlat(i::Integer, t)
@@ -24,14 +29,7 @@ end
 function index_to_polygon_lonlat(i, t)
     unitsphere_poly = index_to_polygon_unitsphere(i, t)
     lonlat = GeographicFromUnitSphere().(unitsphere_poly)
-    lonlat_poly = GI.Polygon([GI.LineString(lonlat; crs = GFT.EPSG(4326))]; crs = GFT.EPSG(4326))
-    return lonlat_poly
-end
-
-function node_to_polygon_lonlat(n)
-    unitsphere_poly = node_to_polygon_unitsphere(n)
-    lonlat = GeographicFromUnitSphere().(unitsphere_poly)
-    lonlat_poly = GI.Polygon([GI.LineString(lonlat; crs = GFT.EPSG(4326))]; crs = GFT.EPSG(4326))
+    lonlat_poly = GI.Polygon(#=@SVector =# [GI.LineString(lonlat; crs = GFT.EPSG(4326))]; crs = GFT.EPSG(4326))
     return lonlat_poly
 end
 

@@ -1,14 +1,14 @@
 import SphericalSpatialTrees as SST
 import GeometryOps as GO, GeoInterface as GI
 import DiskArrays
-
+1
 using GeometryOps.UnitSpherical: GeographicFromUnitSphere, spherical_distance, 
                             UnitSphereFromGeographic, SphericalCap
 
 using Rasters, RasterDataSources, ArchGDAL, Zarr # data sources
 using GeoMakie, GLMakie # visualization
 
-ENV["RASTERDATASOURCES_PATH"] = mkdir(joinpath(@__DIR__, "data")) # hide
+ENV["RASTERDATASOURCES_PATH"] = joinpath(@__DIR__, "data") # hide
 
 # Now that we have loaded all of these packages, let's start talking about functionality.
 # 
@@ -48,6 +48,7 @@ ac = collect(a)
 polys = SST.index_to_polygon_lonlat.(eachindex(a), (target.tree,))
 # Then we can just assign the correct color to the correct polygon,
 # and plot on GeoMakie's `GlobeAxis`.
+
 fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 fig

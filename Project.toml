@@ -1,7 +1,7 @@
 name = "SphericalSpatialTrees"
 uuid = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
-authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 version = "0.1.0-DEV"
+authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 
 [deps]
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
@@ -18,6 +18,7 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 YAXArrayBase = "90b8fcef-0c2d-428d-9c56-5f86629e9d14"
 
 [compat]
@@ -32,6 +33,7 @@ LinearAlgebra = "1"
 Proj = "1.9.0"
 Rotations = "1.7"
 StaticArrays = "1.9"
+Statistics = "1.11.1"
 julia = "1.11"
 
 [extras]
