@@ -21,10 +21,6 @@ get!(ENV, "RASTERDATASOURCES_PATH", mkpath(joinpath(first(Base.DEPOT_PATH), "art
 
 ras = Raster(EarthEnv{HabitatHeterogeneity}, :cv) |> r -> replace_missing(r, NaN) .|> log
 
-# ras = modify(ras) do A
-#     DiskArrays.TestTypes.UnchunkedDiskArray(A)
-# end # TODO: remove once diskarrays pr is merged
-
 # Let's give this dataset some chunks.  It's 1728x696 so 
 # 75x75 chunks give it ~ 22x11 chunks.
 
@@ -68,7 +64,8 @@ polys = SST.index_to_polygon_lonlat.(vec(collect(eachindex(a))), (target.tree,))
 # Then we can just assign the correct color to the correct polygon,
 # and plot on GeoMakie's `GlobeAxis`.
 
-fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
+fig, ax, plt = poly(vec(polys); color = vec(ac[vec(collect(eachindex(a)))]), strokewidth = 0, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
+lines!(ax, vec(polys); color = :black, transparency = true, linewidth = 0.25)
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 fig
 
@@ -79,7 +76,7 @@ a = SST.LazyProjectedDiskArray(source, target)
 ac = mapreduce((i,j)->cat(i,j,dims=3),1:10) do n
     a[:,:,n]
 end  
-polys = SST.index_to_polygon_lonlat.(eachindex(a), (target.tree,))
+polys = SST.index_to_polygon_lonlat.(vec(collect(eachindex(a))), (target.tree,))
 fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 fig
