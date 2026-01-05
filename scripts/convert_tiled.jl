@@ -8,7 +8,7 @@ using GeometryOps.UnitSpherical: GeographicFromUnitSphere, spherical_distance,
 using Rasters, RasterDataSources, ArchGDAL, Zarr # data sources
 using GeoMakie, GLMakie # visualization
 
-ENV["RASTERDATASOURCES_PATH"] = mkdir(joinpath(@__DIR__, "data")) # hide
+get!(ENV, "RASTERDATASOURCES_PATH", mkpath(joinpath(first(Base.DEPOT_PATH), "artifacts", "RasterDataSources"))) # hide
 # nothing # hide
 
 # Now that we have loaded all of these packages, let's start talking about functionality.
@@ -19,15 +19,16 @@ ENV["RASTERDATASOURCES_PATH"] = mkdir(joinpath(@__DIR__, "data")) # hide
 # This dataset is a bioclimatic dataset, which is sufficiently small
 # that you can do this quickly on your machine.
 
-ras = Raster(WorldClim{BioClim}, 5) |> r -> replace_missing(r, NaN)
-ras = modify(ras) do A
-    DiskArrays.TestTypes.UnchunkedDiskArray(A)
-end # TODO: remove once diskarrays pr is merged
+ras = Raster(EarthEnv{HabitatHeterogeneity}, :cv) |> r -> replace_missing(r, NaN) .|> log
 
-# Let's give this dataset some chunks.  It's 2180x1080 so 
-# 100x100 chunks give it 22x11 chunks.
+# ras = modify(ras) do A
+#     DiskArrays.TestTypes.UnchunkedDiskArray(A)
+# end # TODO: remove once diskarrays pr is merged
 
-ras_chunked = DiskArrays.mockchunks(ras,  (100, 100))
+# Let's give this dataset some chunks.  It's 1728x696 so 
+# 75x75 chunks give it ~ 22x11 chunks.
+
+ras_chunked = DiskArrays.mockchunks(ras, (75, 75))
 
 # Now, we need to define the source and target trees.  The dataset itself is
 # on a plane (equirectangular projection), so we can use the `RegularGridTree`
@@ -62,7 +63,7 @@ ac = collect(a);
 # Now let's visualize this!  GLMakie has no problem visualizing this many polygons:
 # First, let's get every polygon:
 
-polys = SST.index_to_polygon_lonlat.(eachindex(a), (target.tree,));
+polys = SST.index_to_polygon_lonlat.(vec(collect(eachindex(a))), (target.tree,));
 
 # Then we can just assign the correct color to the correct polygon,
 # and plot on GeoMakie's `GlobeAxis`.
@@ -82,6 +83,10 @@ polys = SST.index_to_polygon_lonlat.(eachindex(a), (target.tree,))
 fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 fig
+
+f, a, p = meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); zlevel = 100_000, alpha = 0.5, transparency = true, axis = (; type = GlobeAxis, show_axis = false))
+poly!(a, vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black)
+meshimage!(a, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 
 # And that's the basics!
 # Now we can go a bit into the weeds of capabilities and how this works.
