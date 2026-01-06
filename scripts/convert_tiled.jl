@@ -36,7 +36,7 @@ source = SST.ProjectionSource(SST.RegularGridTree, ras_chunked);
 # (based on the Snyder equal area projection).  This is the only tree so far
 # but more can be added as we go forward.
 
-target = SST.ProjectionTarget(SST.ISEACircleTree, 7, 2)
+target = SST.ProjectionTarget(SST.ISEACircleTree, 8, 2)
 
 # As a sidenote, this is what actually happens internally.  Using the spatial
 # tree interface, we compute the map of chunks in the source dataset that each
@@ -64,10 +64,12 @@ polys = SST.index_to_polygon_lonlat.(vec(collect(eachindex(a))), (target.tree,))
 # Then we can just assign the correct color to the correct polygon,
 # and plot on GeoMakie's `GlobeAxis`.
 
-fig, ax, plt = poly(vec(polys); color = vec(ac[vec(collect(eachindex(a)))]), strokewidth = 0, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
-lines!(ax, vec(polys); color = :black, transparency = true, linewidth = 0.25)
-meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
+fig, ax, p1 = poly(a; axis = (; type = GlobeAxis))
+p2 = lines!(ax, a; color = :black, transparency = true, linewidth = 0.075)
+p3 = meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000)
 fig
+    
+display(GLMakie.Screen(), meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); axis = (; type = GlobeAxis)))
 
 # To give a better idea of what this looks like, let's use a lower level (lower resolution) DGGS:
 
@@ -76,14 +78,13 @@ a = SST.LazyProjectedDiskArray(source, target)
 ac = mapreduce((i,j)->cat(i,j,dims=3),1:10) do n
     a[:,:,n]
 end  
-polys = SST.index_to_polygon_lonlat.(vec(collect(eachindex(a))), (target.tree,))
-fig, ax, plt = poly(vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis, show_axis = false))
+fig, ax, plt = poly(a; strokewidth = 1, strokecolor = :black, axis = (; type = GlobeAxis));
 meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 fig
 
-f, a, p = meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); zlevel = 100_000, alpha = 0.5, transparency = true, axis = (; type = GlobeAxis, show_axis = false))
-poly!(a, vec(polys); color = vec(ac), strokewidth = 1, strokecolor = :black)
-meshimage!(a, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
+fig2, ax2, plt2 = meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); zlevel = 100_000, alpha = 0.5, transparency = true, axis = (; type = GlobeAxis, show_axis = false))
+poly!(ax2, a; strokewidth = 1, strokecolor = :black)
+meshimage!(ax2, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000) # background plot
 
 # And that's the basics!
 # Now we can go a bit into the weeds of capabilities and how this works.
@@ -114,9 +115,6 @@ bb_isea = map(Colon(), lo.I, up.I)
 
 
 ras = Raster(WorldClim{BioClim}, 5) |> r -> replace_missing(r, NaN)
-ras = modify(ras) do A
-    DiskArrays.TestTypes.UnchunkedDiskArray(A)
-end
 c = DiskArrays.mockchunks(ras, DiskArrays.GridChunks(size(ras), (100, 100)))
 lccst = SST.RegularGridTree(c)
 r2 = GO.query(SST.rootnode(lccst), mycircle)
