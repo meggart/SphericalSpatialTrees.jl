@@ -1,7 +1,10 @@
 name = "SphericalSpatialTrees"
 uuid = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
-authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
 version = "0.1.0-DEV"
+authors = ["Fabian Gans <fgans@bgc-jena.mpg.de> and contributors"]
+
+[workspace]
+projects = ["docs", "scripts", "test"]
 
 [deps]
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
@@ -34,8 +37,17 @@ Rotations = "1.7"
 StaticArrays = "1.9"
 julia = "1.11"
 
+[weakdeps]
+GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+SphericalSpatialTreesGeoMakieExt = ["GeoMakie"]
+SphericalSpatialTreesMakieExt = ["Makie"]
+
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
 
 [targets]
 test = ["Test"]
