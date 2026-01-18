@@ -68,8 +68,8 @@ fig, ax, p1 = poly(a; axis = (; type = GlobeAxis))
 p2 = lines!(ax, a; color = :black, transparency = true, linewidth = 0.075)
 p3 = meshimage!(ax, -180..180, -90..90, fill(colorant"white", 2, 2); zlevel = -100_000)
 fig
-    
-display(GLMakie.Screen(), meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); axis = (; type = GlobeAxis)))
+# Let's also see the original data:
+meshimage(-180..180, -90..90, reorder(ras, Y => Rasters.ForwardOrdered()); axis = (; type = GlobeAxis))
 
 # To give a better idea of what this looks like, let's use a lower level (lower resolution) DGGS:
 
