@@ -1,17 +1,18 @@
 [deps]
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-DocumenterVitepress = "4710194d-e776-4893-9690-8d956a29c365"
-Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
 DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterVitepress = "4710194d-e776-4893-9690-8d956a29c365"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 RasterDataSources = "3cb90ccd-e1b6-4867-9617-4276c8b2ca36"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 SphericalSpatialTrees = "86b7679e-e8c0-4ea9-ad3d-baef5c69eb57"
 Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
 
 [sources]
-SphericalSpatialTrees = { path = ".." }
+SphericalSpatialTrees = {path = ".."}
