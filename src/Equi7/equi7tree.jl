@@ -6,7 +6,6 @@ import DimensionalData as DD
 import CoordinateTransformations as CT
 import Proj
 import CoordinateTransformations: Transformation, ∘
-import GeoFormatTypes: EPSG
 import Artifacts: @artifact_str
 using Statistics: median
 
