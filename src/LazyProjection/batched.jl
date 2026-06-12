@@ -20,7 +20,7 @@ function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcear
         end
     else
         targetcartind = CartesianIndices(targetinds)
-        targetinds_split = Iterators.partition(targetcartind,length(targetcartind)÷Threads.nthreads())
+        targetinds_split = Iterators.partition(targetcartind, div(length(targetcartind), Threads.nthreads(), Base.RoundUp))
         res = map(targetinds_split) do indsubset
             with_transform(isourcetrans) do mysourcetrans 
                 with_transform(targettrans) do mytargettrans
