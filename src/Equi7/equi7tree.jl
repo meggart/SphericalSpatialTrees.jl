@@ -6,6 +6,7 @@ import DimensionalData as DD
 import CoordinateTransformations as CT
 import Proj
 import CoordinateTransformations: Transformation, ∘
+import GeoFormatTypes: EPSG
 import Artifacts: @artifact_str
 using Statistics: median
 
@@ -21,8 +22,9 @@ const MAX_N_TILE = ((114, 93),(97, 87),(115, 96),(82, 55),(133, 98),(187, 121),(
 const MAX_SIZE = maximum(first,MAX_N_TILE)+1,maximum(last,MAX_N_TILE)+1
 const ZONES = ("AF","AN","AS","EU","NA","OC","SA")
 const CODES = 27701:27707
-const EQUI7Trans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
-const EQUI7ITrans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
+const EQUI7Trans = typeof(SST.init_threaded_proj_collection(string.("EPSG:", CODES)))[]
+const EQUI7ITrans = typeof(SST.init_threaded_proj_collection(string.("EPSG:", CODES)))[]
+
 const TILECOORDS = readzones.(ZONES)
 
 struct EQUI7Tag 
@@ -32,7 +34,7 @@ end
 
 
 function __init__()
-    t = SST.init_threaded_proj_collection_epsg(CODES)
+    t = SST.init_threaded_proj_collection(string.("EPSG:", CODES))
     push!(EQUI7Trans,t)
     push!(EQUI7ITrans,inv(t))
 end
