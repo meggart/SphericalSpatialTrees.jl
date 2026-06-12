@@ -31,4 +31,5 @@ makedocs(;
 DocumenterVitepress.deploydocs(;
     repo="github.com/meggart/SphericalSpatialTrees.jl",
     devbranch="main",
+    push_preview=true,
 )
