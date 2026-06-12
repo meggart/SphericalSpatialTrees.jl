@@ -6,7 +6,16 @@ import DimensionalData as DD
 import CoordinateTransformations as CT
 import Proj
 import CoordinateTransformations: Transformation, ∘
+import Artifacts: @artifact_str
 using Statistics: median
+
+
+readzones(zone) = open(joinpath(artifact"equi7tiles","Equi7ZoneIndices-1","tiles_bin",zone),"r") do f
+    n = read(f,Int)
+    map(1:n) do _
+        read(f,Int),read(f,Int)
+    end
+end
 
 const MAX_N_TILE = ((114, 93),(97, 87),(115, 96),(82, 55),(133, 98),(187, 121),(116, 105))
 const MAX_SIZE = maximum(first,MAX_N_TILE)+1,maximum(last,MAX_N_TILE)+1
@@ -14,7 +23,8 @@ const ZONES = ("AF","AN","AS","EU","NA","OC","SA")
 const CODES = 27701:27707
 const EQUI7Trans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
 const EQUI7ITrans = typeof(SST.init_threaded_proj_collection_epsg(CODES))[]
-const TILECOORDS = [include("tiles/$zone") for zone in ZONES]
+const TILECOORDS = readzones.(ZONES)
+
 struct EQUI7Tag 
     zone::Int
     resolution::Int
