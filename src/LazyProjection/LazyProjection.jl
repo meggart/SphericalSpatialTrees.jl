@@ -132,6 +132,11 @@ DiskArrays.haschunks(::LazyProjectedDiskArray) = DiskArrays.Chunked()
 Base.size(a::LazyProjectedDiskArray) = gridsize(a.target.tree)
 Base.ndims(a::LazyProjectedDiskArray) = ndims(a.target.tree)
 
+DD.DimArray(source::ProjectionSource, target::ProjectionTarget) = 
+    DD.DimArray(LazyProjectedDiskArray(source,target),DD.dims(target.tree))
+
+
+
 function Base.show(io::IO, ::MIME"text/plain", lpda::LazyProjectedDiskArray{T}) where T
     dims = size(lpda)
     dims_str = join(dims, "×")
@@ -189,7 +194,7 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::Abst
     outarray = OffsetArray(aout, targetinds...)
     chunks = compute_connected_chunks(a.source, a.target,targetinds)
     isourcetrans = inv(get_projection(a.source.tree))
-    if length(chunks) < 8
+    if length(chunks) < 100
         project_batched(a,outarray,chunks,isourcetrans,targetinds)
     else
         project_sequential(a,outarray,chunks,isourcetrans,targetinds;index_arraybuffer)
@@ -208,5 +213,6 @@ function reproject!(target_array,source,target)
     end
 end
 
+include("threading_helpers.jl")
 include("sequential.jl")
 include("batched.jl")
