@@ -55,7 +55,7 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
     show(bcompact,ps.tree)
     treestring = String(take!(b))
 
-    printstyled(io, "ProjectionSource($treestring)", color=:cyan)
+    printstyled(io, "ProjectionTarget($treestring)", color=:cyan)
 end
 
 function create_dataset(target::ProjectionTarget, 
@@ -97,20 +97,25 @@ function compute_connected_chunks(source::ProjectionSource,target::ProjectionTar
 end
 
 function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
-
-    target_smalltree = TreeNode(target.tree,targetinds)
-    circle = get_gridextent(target.tree, targetinds...)
-    pred = Base.Fix1(_intersects, circle)
     res = Int[]
-    depth_first_search(pred, rootnode(source.chunktree)) do n
-        test_intersect_highres(source,target_smalltree, n) && push!(res, n)
+    with_transform(target.tree) do targettree
+        with_transform(source.chunktree) do sourcechunktree
+            with_transform(source.tree) do sourcetree
+                target_smalltree = TreeNode(targettree, targetinds)
+                circle = get_gridextent(targettree, targetinds...)
+                pred = Base.Fix1(_intersects, circle)
+                depth_first_search(pred, rootnode(sourcechunktree)) do n
+                    test_intersect_highres(source, target_smalltree, n, sourcetree) && push!(res, n)
+                end
+            end
+        end
     end
     res
 end
 
-function test_intersect_highres(source,target_smalltree,sourcechunk)
+function test_intersect_highres(source, target_smalltree, sourcechunk, sourcetree)
     ssmallinds = indices_from_chunk(source, sourcechunk)
-    source_smalltree = TreeNode(source.tree,ssmallinds)
+    source_smalltree = TreeNode(sourcetree, ssmallinds)
     any_intersect(target_smalltree, source_smalltree)
 end
 
@@ -125,7 +130,7 @@ end
 function DiskArrays.eachchunk(a::LazyProjectedDiskArray)
     gs = gridsize(a.target.tree)
     cgs = gridsize(a.target.chunktree)
-    cs = Int.(gs./cgs)
+    cs = Int.(gs .÷ cgs)
     DiskArrays.GridChunks(a,cs)
 end
 DiskArrays.haschunks(::LazyProjectedDiskArray) = DiskArrays.Chunked()

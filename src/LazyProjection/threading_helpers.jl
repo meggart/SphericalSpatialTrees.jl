@@ -21,7 +21,7 @@ struct TransformationChannel{T1,T2} <: Function
     transforms::_TransformChannel{T1,T2}
 end
 Base.inv(t::TransformationChannel) = TransformationChannel(!t.isinv, t.transforms)
-allow_threaded_transformation(::TransformationChannel) = true
+allow_threaded_transformation(::TransformationChannel) = false
 allow_threaded_transformation(_) = true
 function TransformationChannel(f)
     testitem = f(C_NULL)
@@ -62,7 +62,9 @@ end
 struct MultiZoneProjection{P} <: Transformation
     projections::Vector{P}
 end
-(p::MultiZoneProjection)((x,y,zone)) = p.projections[zone]((x,y))
+(p::MultiZoneProjection)((x, y, zone)::Tuple{Any,Any,Any}) = p.projections[zone]((x, y))
+(p::MultiZoneProjection)((x, y, z, zone)::Tuple{Any,Any,Any,Any}) = p.projections[zone]((x, y, z))
+(p::MultiZoneProjection)((x, y, z, a, zone)::Tuple{Any,Any,Any,Any,Any}) = p.projections[zone]((x, y, z, a))
 
 function init_threaded_proj_collection(crss)
     TransformationChannel() do ctx
