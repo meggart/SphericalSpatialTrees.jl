@@ -21,6 +21,14 @@ function with_transform(f,t::LazyProjTransform)
     end
 end
 
+"""
+    UTMTransform(; ctx=C_NULL)
+
+Transform `(lon, lat)` coordinates to `(x, y, zone, hemisphere)` in the
+Universal Transverse Mercator projection, where `hemisphere` is `1` for north
+and `2` for south. The per-zone PROJ transformations are created lazily and
+cached.
+"""
 struct UTMTransform{T} <: Transformation
     projs::T
     ctx::Ptr{Nothing}
@@ -35,6 +43,12 @@ function (t::UTMTransform)((lon,lat))
     x,y = t.projs[zone,hemi]((lon,lat))
     return (x,y,zone,hemi)
 end
+"""
+    IUTMTransform(; ctx=C_NULL)
+
+The inverse of [`UTMTransform`](@ref): maps `(x, y, zone, hemisphere)` back to
+`(lon, lat)`.
+"""
 struct IUTMTransform{T} <: Transformation
     projs::T
     ctx::Ptr{Nothing}
@@ -60,7 +74,21 @@ function UTMTransform(;ctx=C_NULL)
     UTMTransform(projs,ctx)
 end
 
+"""
+    UnitSphereFromUTM()
+
+A [`LazyProjTransform`](@ref) that maps UTM coordinates `(x, y, zone,
+hemisphere)` to unit-sphere points. Used as the default transform of a
+[`UTMTree`](@ref), which stores its cells in UTM coordinates.
+"""
 struct UnitSphereFromUTM <: LazyProjTransform end
+
+"""
+    UTMFromUnitSphere()
+
+A [`LazyProjTransform`](@ref) that maps unit-sphere points to `(x, y, zone,
+hemisphere)` coordinates in the UTM projection of the respective zone.
+"""
 struct UTMFromUnitSphere <: LazyProjTransform end
 create_transform(::UnitSphereFromUTM,ctx) = UnitSphereFromGeographic() ∘ IUTMTransform(;ctx)
 create_transform(::UTMFromUnitSphere,ctx) = UTMTransform(;ctx) ∘ GeographicFromUnitSphere()
@@ -114,6 +142,7 @@ end
 
 Base.ndims(t::UTMTree) = 4
 gridsize(t::UTMTree) = (length(t.x)-1, length(t.y)-1, 60, 2)
+nleaf(t::UTMTree) = prod(gridsize(t))
 function get_gridextent(t::UTMTree, xr::AbstractUnitRange, yr::AbstractUnitRange, zone, hemi)
     t = TreeNode(t, UTMIndex((first(xr), last(xr) + 1), (first(yr), last(yr) + 1), (first(zone), last(zone)+1), length(hemi)==2 ? 3 : first(hemi)))
     node_extent(t)
@@ -231,7 +260,7 @@ function node_to_polygon_unitsphere(grid::UTMTree, index::UTMIndex)
     if index.hemi == 3
         error("Can not make polygon across hemispheres")
     end
-    poly = #= @SVector =#[(xr[x1], yr[y1],zone1), (xr[x2], yr[y1], zone2-1), (xr[x2], yr[y2],zone2-1), (xr[x1], yr[y2], zone1), (xr[x1], yr[y1], zone1)]
+    poly = #= @SVector =#[(xr[x1], yr[y1], zone1, index.hemi), (xr[x2], yr[y1], zone2 - 1, index.hemi), (xr[x2], yr[y2], zone2 - 1, index.hemi), (xr[x1], yr[y2], zone1, index.hemi), (xr[x1], yr[y1], zone1, index.hemi)]
     grid.trans.(poly)
 end
 index_to_cartesian(i::Integer, t::UTMTree) = CartesianIndices((length(t.x) - 1, length(t.y) - 1, 60, 2))[i].I
@@ -252,6 +281,13 @@ function TreeNode(tree::UTMTree, targetinds::Tuple)
     TreeNode(tree, UTMIndex((ix1, ix2+1), (iy1, iy2+1), (first(r3),last(r3)+1), (length(r4) == 2 ? 3 : first(r4))))
 end
 
+"""
+    ProjectionSource(::Type{<:UTMTree}, ar, spatial_dims=(DD.XDim, DD.YDim, DD.Dim{:ZONE}, DD.Dim{:Hemisphere}))
+
+Create a regridding source from a `DD.AbstractDimArray` with dimensions
+`(x, y, ZONE, Hemisphere)`. The source chunk tree is derived from the chunking
+of `ar`.
+"""
 function ProjectionSource(::Type{<:UTMTree}, ar, spatial_dims=(DD.XDim, DD.YDim, DD.Dim{:ZONE},DD.Dim{:Hemisphere}))
     tree = UTMTree(ar, spatial_dims)
     lookups = map(DD.format, DD.dims(ar, spatial_dims))
@@ -274,6 +310,13 @@ function indices_from_chunk(s::ProjectionSource{<:Any,<:UTMTree}, target_chunk)
     end
 end
 
+"""
+    ProjectionTarget(::Type{<:UTMTree}, x, y, trans=UnitSphereFromUTM(); chunksize=512)
+
+Create a regridding target on the UTM grid with cell boundaries `x` and `y`
+within each of the 60 zones and 2 hemispheres. `chunksize` sets the number of
+cells per chunk in each direction.
+"""
 function ProjectionTarget(::Type{<:UTMTree}, x, y, trans=UnitSphereFromUTM(); chunksize=512)
     tree = UTMTree(x, y, trans)
     xchunk = x[1:chunksize:end]

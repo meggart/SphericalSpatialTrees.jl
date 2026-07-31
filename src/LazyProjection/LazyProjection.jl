@@ -22,6 +22,21 @@ pseudostep(a::AbstractRange) = step(a)
 pseudostep(a::AbstractVector) = length(a) > 1 ? (last(a) - first(a)) / (length(a)-1) : one(eltype(a))
 
 
+"""
+    ProjectionSource(::Type{<:SpatialTree}, ar, spatial_dims...)
+
+A regridding source: a chunked array `ar` together with a spatial search tree
+(`tree`), a coarser chunk tree (`chunktree`) whose leaves correspond to the
+chunks of `ar`, and the lookup axes (`lookups`) used for nearest-neighbor
+searches.
+
+Construct it by passing the tree type as the first argument:
+
+    source = ProjectionSource(RegularGridTree, geo_array)
+
+The constructor is defined per tree type; see the documentation of the
+respective tree for its specific arguments (`spatial_dims`, etc.).
+"""
 struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}
     ar::Y
     tree::T
@@ -44,6 +59,20 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionSource)
     printstyled(io, "ProjectionSource{$T}($dims_str, $treestring)", color=:cyan)
 end
 
+"""
+    ProjectionTarget(::Type{<:SpatialTree}, args...; kwargs...)
+
+A regridding target: a spatial search tree (`tree`) together with a coarser
+chunk tree (`chunktree`) that defines the chunks of the resulting array.
+
+Construct it by passing the tree type as the first argument:
+
+    target = ProjectionTarget(RegularGridTree, -180.0:0.1:180.0, 90.0:-0.1:-90.0)
+    target = ProjectionTarget(ISEACircleTree, 8, 2)
+
+The constructor is defined per tree type; see the documentation of the
+respective tree for its specific arguments (resolutions, `chunksize`, etc.).
+"""
 struct ProjectionTarget{T,CT}
     tree::T
     chunktree::CT
@@ -58,6 +87,15 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
     printstyled(io, "ProjectionTarget($treestring)", color=:cyan)
 end
 
+"""
+    create_dataset(target, path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(),
+                   backend=:zarr, output_datatype=Float64, kwargs...)
+
+Create a dataset on disk at `path` whose grid matches the target tree of
+`target`. It contains a single array `arrayname` that is chunked according to
+the target's chunk tree. Returns the created array, ready to be filled by
+[`reproject!`](@ref).
+"""
 function create_dataset(target::ProjectionTarget, 
     path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
     
@@ -86,6 +124,16 @@ function create_dataset(target::ProjectionTarget,
 end
 
 
+"""
+    compute_connected_chunks(source, target)
+    compute_connected_chunks(source, target, targetinds)
+
+Determine which source chunks are needed for regridding. The two-argument
+version returns a vector with one entry per target chunk (in linear index
+order), each entry holding the indices of the source chunks that intersect it.
+The three-argument version restricts the computation to the given range of
+target indices and returns only the source chunk indices needed there.
+"""
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     
     connected_chunks = [Int[] for _ in 1:nleaf(target.chunktree)]
@@ -120,6 +168,14 @@ function test_intersect_highres(source, target_smalltree, sourcechunk, sourcetre
 end
 
 
+"""
+    LazyProjectedDiskArray(source, target)
+
+A lazy `AbstractDiskArray` that regrids data from `source` to `target` by
+nearest-neighbor search, computed on demand. It has the size of the target grid
+and is chunked according to the target's chunk tree; accessing a block triggers
+loading and reprojection of the connected source chunks.
+"""
 struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
     source::ProjectionSource
     target::ProjectionTarget
@@ -206,6 +262,13 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::Abst
     end
 end
 
+"""
+    reproject!(target_array, source, target)
+
+Regrid all data from `source` to `target`, writing the result chunk by chunk
+into `target_array` (e.g. a Zarr array created with [`create_dataset`](@ref)).
+This assumes that `target_array` only has spatial axes.
+"""
 function reproject!(target_array,source,target)
     #this assumes there are only spatial axes
     lazyarray = LazyProjectedDiskArray(source,target)

@@ -44,7 +44,7 @@ function with_transform(f,t::TransformationChannel)
     try 
         f(_tt)
     finally
-        put!(t.transforms,tt)
+        put!(t.transforms.transforms,tt)
     end
 end
 #Generic fallback

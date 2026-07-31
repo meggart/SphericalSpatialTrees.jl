@@ -3,6 +3,7 @@ import GeometryOps.UnitSpherical: UnitSphereFromGeographic, SphericalCap, _merge
 import GeometryOps.SpatialTreeInterface as STI
 import ..SphericalSpatialTrees as SST
 import DimensionalData as DD
+import DiskArrays: eachchunk
 import CoordinateTransformations as CT
 import Proj
 import CoordinateTransformations: Transformation, ∘
@@ -53,7 +54,7 @@ end
 function get_tilenode(coord,resolution,zone)
     x = range(coord[1]*1e5,(coord[1]+1)*1e5,length=resolution+1)
     y = range(coord[2]*1e5,(coord[2]+1)*1e5,length=resolution+1)
-    SST.rootnode(SST.RegularGridTree(x,y,EQUI7ITrans ∘ SST.PickPlane(zone),EQUI7Tag(zone,resolution)))
+    SST.rootnode(SST.RegularGridTree(x,y,EQUI7ITrans[1] ∘ SST.PickPlane(zone),EQUI7Tag(zone,resolution)))
 end
 
 
@@ -103,6 +104,13 @@ function nodefromzone(zone,resolution)
     build_node(indices,allcoords,allextents,alltilenodes)
 end
 
+"""
+    Equi7Tree(resolution)
+
+A spatial tree covering the 7 Equi7 zones (AF, AN, AS, EU, NA, OC, SA). Each
+zone's tiles are subdivided into `resolution × resolution` cells, giving a
+3-dimensional grid with dimensions `(x, y, zone)`.
+"""
 struct Equi7Tree{T<:SST.TileNode}
     resolution::Int
     rootnode::T
@@ -143,6 +151,12 @@ function SST.index_to_native_coords(i,tree::Equi7Tree)
 end
 
 
+"""
+    ProjectionSource(::Type{<:Equi7Tree}, ar, spatial_dims=(DD.XDim, DD.YDim, :zone))
+
+Create a regridding source from an array with dimensions `(x, y, zone)` that
+covers all 7 Equi7 zones.
+"""
 function SST.ProjectionSource(::Type{<:Equi7Tree}, ar, spatial_dims = (DD.XDim,DD.YDim,:zone))
     nx,ny,n = size(ar)
     @assert n == 7 "The target must have 7 faces, got $n"
@@ -162,6 +176,12 @@ function SST.ProjectionSource(::Type{<:Equi7Tree}, ar, spatial_dims = (DD.XDim,D
     SST.ProjectionSource(ar,tree,chunktree,lookups,chunks)
 end
 
+"""
+    ProjectionTarget(::Type{Equi7Tree}, target_resolution, chunk_resolution)
+
+Create a regridding target on the Equi7 grid with the given cell and chunk
+resolutions.
+"""
 function SST.ProjectionTarget(::Type{Equi7Tree},target_resolution, chunk_resolution)
     tree = Equi7Tree(target_resolution)
     chunktree = Equi7Tree(chunk_resolution)

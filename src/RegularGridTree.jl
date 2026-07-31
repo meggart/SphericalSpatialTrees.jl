@@ -151,6 +151,12 @@ function getchild(t::TreeNode, i)
 end
 nchild(n::TreeNode) = _nchild(n.index)
 getchild(n::TreeNode) = (getchild(n, i) for i in 1:nchild(n))
+"""
+    rootnode(t)
+
+Return the root [`TreeNode`](@ref) of the spatial tree `t`, the starting point
+for searches and traversals.
+"""
 rootnode(t::RegularGridTree) = TreeNode(t, TreeIndex((1, length(t.x)), (1, length(t.y))))
 extent(node::TreeNode) = extent(node.grid, node.index)
 extent(t::RegularGridTree, index::TreeIndex) = extent(t, index.x[1], index.x[2], index.y[1], index.y[2])
@@ -199,6 +205,12 @@ end
 get_step(x::AbstractRange) = step(x)
 get_step(x) = length(x) > 1 ? (x[2] - x[1]) : one(eltype(x))
 
+"""
+    index_to_native_coords(i, t)
+
+Return the coordinates of the center of cell index `i` in the native (unprojected)
+coordinate system of tree `t`.
+"""
 function index_to_native_coords(i, t::RegularGridTree)
     xhalfstep = get_step(t.x) / 2
     yhalfstep = get_step(t.y) / 2
@@ -212,8 +224,20 @@ function index_to_lonlat(i::Integer, t::RegularGridTree{<:Any,<:Any,UnitSphereFr
     index_to_native_coords(i, t)
 end
 
+"""
+    index_to_cartesian(i, t)
+
+Convert a linear index `i` into the Cartesian index (tuple of subscripts) of the
+corresponding cell of tree `t`.
+"""
 index_to_cartesian(i::Integer, t::RegularGridTree) = CartesianIndices((length(t.x) - 1, length(t.y) - 1))[i].I
 
+"""
+    index_to_unitsphere(i, t, projfunc=get_projection(t))
+
+Return the position of the center of cell index `i` of tree `t` as a
+`UnitSphericalPoint` on the unit sphere.
+"""
 function index_to_unitsphere(i::Integer, t, projfunc=get_projection(t))
     coords = index_to_native_coords(i, t)
     projfunc(coords)
@@ -228,6 +252,13 @@ function TreeNode(tree::RegularGridTree, targetinds::Tuple)
     TreeNode(tree, TreeIndex((ix1, ix2+1), (iy1, iy2+1)))
 end
 
+"""
+    ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims=(DD.XDim, DD.YDim))
+
+Create a regridding source from a `DD.AbstractDimArray` with regular grid
+dimensions (by default `X` and `Y`). The source chunk tree is derived from the
+chunking of `ar`.
+"""
 function ProjectionSource(::Type{<:RegularGridTree}, ar, spatial_dims=(DD.XDim, DD.YDim))
     tree = RegularGridTree(ar, spatial_dims)
     lookups = map(DD.format, DD.dims(ar, spatial_dims))
@@ -251,6 +282,12 @@ function indices_from_chunk(s::ProjectionSource{<:Any,<:RegularGridTree}, target
 end
 
 
+"""
+    ProjectionTarget(::Type{<:RegularGridTree}, x, y, trans=UnitSphereFromGeographic(); chunksize=256)
+
+Create a regridding target on a regular grid with cell boundaries `x` and `y`.
+`chunksize` sets the number of cells per chunk in each direction.
+"""
 function ProjectionTarget(::Type{<:RegularGridTree}, x, y, trans=UnitSphereFromGeographic(); chunksize=256)
     tree = RegularGridTree(x, y, trans)
     xchunk = x[1:chunksize:end]
