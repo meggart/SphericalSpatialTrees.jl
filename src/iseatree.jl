@@ -67,13 +67,22 @@ function index_to_cartesian(i::Integer, t::ISEACircleTree)
     n = 2^t.resolution
     CartesianIndices((n,n,10))[i].I
 end
-function index_to_unitsphere(i::Integer,t::ISEACircleTree)
+function index_to_unitsphere(i::Integer, t::ISEACircleTree, trans=get_projection(t))
     xr,yr = get_xyranges(t)
     halfstep = step(xr) / 2
     i,j,k = index_to_cartesian(i,t)
     x = xr[i] + halfstep
     y = yr[j] + halfstep
-    getchild(t,k).grid.trans((x, y))
+    trans((x, y, k))
+end
+
+function index_to_native_coords(i, tree::ISEACircleTree)
+    k, l, n = index_to_cartesian(i, tree)
+    xr, yr = get_xyranges(t)
+    halfstep = step(xr) / 2
+    x = xr[k] + halfstep
+    y = yr[l] + halfstep
+    x, y, n
 end
 
 function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)

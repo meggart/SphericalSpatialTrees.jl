@@ -1,0 +1,8 @@
+# a simple Artifacts.toml file
+[equi7tiles]
+git-tree-sha1 = "5ba5f72f18d2b7505074ced880df7c7a2c5877ba"
+
+    [[equi7tiles.download]]
+    url = "https://github.com/meggart/Equi7ZoneIndices/archive/refs/tags/v1.tar.gz"
+    sha256 = "8f8f63776b332fe00b9c3bc3c24a10f3ab70857092cd94aad7cc959fb10867d6"
+
