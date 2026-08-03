@@ -61,11 +61,13 @@ function find_nearest(tree, point)
     pred = p -> begin
         _contains(p, point3)
     end
-    depth_first_search(pred, rootnode(tree)) do i
-        cur_min = first(cur[])
-        dist = norm(point3 - index_to_unitsphere(i, tree))
-        if dist < cur_min
-            cur[] = (dist, i)
+    with_transform(tree) do _tree
+        depth_first_search(pred, rootnode(_tree)) do i
+            cur_min = first(cur[])
+            dist = norm(point3 - index_to_unitsphere(i, _tree))
+            if dist < cur_min
+                cur[] = (dist, i)
+            end
         end
     end
     cur[]
