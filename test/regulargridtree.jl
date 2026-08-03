@@ -73,4 +73,3 @@ end
     @test isa(SST.node_extent(leaf), SphericalCap)
     @test SST.linind(leaf) == 1
 end
-

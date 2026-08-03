@@ -22,6 +22,21 @@ pseudostep(a::AbstractRange) = step(a)
 pseudostep(a::AbstractVector) = length(a) > 1 ? (last(a) - first(a)) / (length(a)-1) : one(eltype(a))
 
 
+"""
+    ProjectionSource(::Type{<:SpatialTree}, ar, spatial_dims...)
+
+A regridding source: a chunked array `ar` together with a spatial search tree
+(`tree`), a coarser chunk tree (`chunktree`) whose leaves correspond to the
+chunks of `ar`, and the lookup axes (`lookups`) used for nearest-neighbor
+searches.
+
+Construct it by passing the tree type as the first argument:
+
+    source = ProjectionSource(RegularGridTree, geo_array)
+
+The constructor is defined per tree type; see the documentation of the
+respective tree for its specific arguments (`spatial_dims`, etc.).
+"""
 struct ProjectionSource{Y<:DD.AbstractDimArray,T,L,C,CT}
     ar::Y
     tree::T
@@ -44,6 +59,20 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionSource)
     printstyled(io, "ProjectionSource{$T}($dims_str, $treestring)", color=:cyan)
 end
 
+"""
+    ProjectionTarget(::Type{<:SpatialTree}, args...; kwargs...)
+
+A regridding target: a spatial search tree (`tree`) together with a coarser
+chunk tree (`chunktree`) that defines the chunks of the resulting array.
+
+Construct it by passing the tree type as the first argument:
+
+    target = ProjectionTarget(RegularGridTree, -180.0:0.1:180.0, 90.0:-0.1:-90.0)
+    target = ProjectionTarget(ISEACircleTree, 8, 2)
+
+The constructor is defined per tree type; see the documentation of the
+respective tree for its specific arguments (resolutions, `chunksize`, etc.).
+"""
 struct ProjectionTarget{T,CT}
     tree::T
     chunktree::CT
@@ -55,9 +84,18 @@ function Base.show(io::IO, ::MIME"text/plain", ps::ProjectionTarget)
     show(bcompact,ps.tree)
     treestring = String(take!(b))
 
-    printstyled(io, "ProjectionSource($treestring)", color=:cyan)
+    printstyled(io, "ProjectionTarget($treestring)", color=:cyan)
 end
 
+"""
+    create_dataset(target, path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(),
+                   backend=:zarr, output_datatype=Float64, kwargs...)
+
+Create a dataset on disk at `path` whose grid matches the target tree of
+`target`. It contains a single array `arrayname` that is chunked according to
+the target's chunk tree. Returns the created array, ready to be filled by
+[`reproject!`](@ref).
+"""
 function create_dataset(target::ProjectionTarget, 
     path; arrayname=:layer, arraymeta=Dict(), datasetmeta=Dict(), backend=:zarr, output_datatype=Float64, kwargs...)
     
@@ -86,6 +124,16 @@ function create_dataset(target::ProjectionTarget,
 end
 
 
+"""
+    compute_connected_chunks(source, target)
+    compute_connected_chunks(source, target, targetinds)
+
+Determine which source chunks are needed for regridding. The two-argument
+version returns a vector with one entry per target chunk (in linear index
+order), each entry holding the indices of the source chunks that intersect it.
+The three-argument version restricts the computation to the given range of
+target indices and returns only the source chunk indices needed there.
+"""
 function compute_connected_chunks(source::ProjectionSource,target::ProjectionTarget)
     
     connected_chunks = [Int[] for _ in 1:nleaf(target.chunktree)]
@@ -97,24 +145,37 @@ function compute_connected_chunks(source::ProjectionSource,target::ProjectionTar
 end
 
 function compute_connected_chunks(source::ProjectionSource, target::ProjectionTarget, targetinds)
-
-    target_smalltree = TreeNode(target.tree,targetinds)
-    circle = get_gridextent(target.tree, targetinds...)
-    pred = Base.Fix1(_intersects, circle)
     res = Int[]
-    depth_first_search(pred, rootnode(source.chunktree)) do n
-        test_intersect_highres(source,target_smalltree, n) && push!(res, n)
+    with_transform(target.tree) do targettree
+        with_transform(source.chunktree) do sourcechunktree
+            with_transform(source.tree) do sourcetree
+                target_smalltree = TreeNode(targettree, targetinds)
+                circle = get_gridextent(targettree, targetinds...)
+                pred = Base.Fix1(_intersects, circle)
+                depth_first_search(pred, rootnode(sourcechunktree)) do n
+                    test_intersect_highres(source, target_smalltree, n, sourcetree) && push!(res, n)
+                end
+            end
+        end
     end
     res
 end
 
-function test_intersect_highres(source,target_smalltree,sourcechunk)
+function test_intersect_highres(source, target_smalltree, sourcechunk, sourcetree)
     ssmallinds = indices_from_chunk(source, sourcechunk)
-    source_smalltree = TreeNode(source.tree,ssmallinds)
+    source_smalltree = TreeNode(sourcetree, ssmallinds)
     any_intersect(target_smalltree, source_smalltree)
 end
 
 
+"""
+    LazyProjectedDiskArray(source, target)
+
+A lazy `AbstractDiskArray` that regrids data from `source` to `target` by
+nearest-neighbor search, computed on demand. It has the size of the target grid
+and is chunked according to the target's chunk tree; accessing a block triggers
+loading and reprojection of the connected source chunks.
+"""
 struct LazyProjectedDiskArray{T,N,S,TA} <: AbstractDiskArray{T,N}
     source::ProjectionSource
     target::ProjectionTarget
@@ -125,7 +186,7 @@ end
 function DiskArrays.eachchunk(a::LazyProjectedDiskArray)
     gs = gridsize(a.target.tree)
     cgs = gridsize(a.target.chunktree)
-    cs = Int.(gs./cgs)
+    cs = Int.(gs .÷ cgs)
     DiskArrays.GridChunks(a,cs)
 end
 DiskArrays.haschunks(::LazyProjectedDiskArray) = DiskArrays.Chunked()
@@ -143,52 +204,7 @@ function Base.show(io::IO, ::MIME"text/plain", lpda::LazyProjectedDiskArray{T}) 
     print(io, "$dims_str LazyProjectedDiskArray{$T}")
 end
 
-function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{Any,Nsource}}, chunks, index_arraybuffer) where Nsource
-    alllinind = LinearIndices(gridsize(targettree))
-    #Ntarget = ndims(targettree)
-    inner_indexarray = fill((zero(CartesianIndex{Nsource}), zero(CartesianIndex{Nsource})), length.(targetinds)...)
-    indexarray = OffsetArray(inner_indexarray, targetinds...)
-    Threads.@threads for targetindex in CartesianIndices(targetinds)
-        ind = alllinind[targetindex]
-        unit = index_to_unitsphere(ind, targettree)
-        sourcecoords = isourcetrans(unit)
-        sourceindices = map(sourcecoords,lookups) do coord,look
-            DD.selectindices(look, DD.Near(coord))
-        end
-        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
-        cI = CartesianIndex(chunkindices)
-        indexarray[targetindex] = (cI, CartesianIndex(sourceindices))
-    end
-    cartinds = first.(unique(first, indexarray))
-    if length(cartinds) > length(index_arraybuffer)
-        error("Too many connected chunks")
-    end
-    mybuffer = view(index_arraybuffer, 1:length(cartinds))
-    foreach(mybuffer) do b
-        empty!(first(b))
-        empty!(last(b))
-    end
-    for itarget in CartesianIndices(indexarray)
-        chunknum, iel = indexarray[itarget]
-        ichunk = findfirst(==(chunknum), cartinds)
-        vt, vs = index_arraybuffer[ichunk]
-        push!(vt, itarget)
-        push!(vs, iel)
-    end
-    return mybuffer
-end
-
 struct NearestProjection end
-
-function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffer)
-    source = a.source
-    target = a.target
-    targettree = target.tree
-    isourcetrans = Base.inv(get_projection(source.tree))
-    lookups = DD.dims(source.lookups,source.chunks)
-    chunks = source.chunks
-    compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
-end
 
 function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
     outarray = OffsetArray(aout, targetinds...)
@@ -201,6 +217,13 @@ function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::Abst
     end
 end
 
+"""
+    reproject!(target_array, source, target)
+
+Regrid all data from `source` to `target`, writing the result chunk by chunk
+into `target_array` (e.g. a Zarr array created with [`create_dataset`](@ref)).
+This assumes that `target_array` only has spatial axes.
+"""
 function reproject!(target_array,source,target)
     #this assumes there are only spatial axes
     lazyarray = LazyProjectedDiskArray(source,target)

@@ -27,12 +27,25 @@ Base.inv(::WebMercatorToLonLat) = LonLatToWebMercator()
 
 const halfsquarelength = 2.0037508342789244e7
 struct WebMercatorTree end
+"""
+    WebMercatorTree(max_level)
+
+A spatial tree on the WebMercator tiling scheme at zoom level `max_level`, i.e.
+a grid of `2^max_level × 2^max_level` cells. Returns a `RegularGridTree` with a
+WebMercator transform.
+"""
 function WebMercatorTree(max_level)
     r = range(-halfsquarelength,halfsquarelength,length=2^max_level+1)
     p = UnitSphereFromGeographic() ∘ WebMercatorToLonLat()
     RegularGridTree(r,r,p)
 end
 
+"""
+    ProjectionTarget(::Type{<:WebMercatorTree}, target_resolution; chunksize=256)
+
+Create a regridding target on the WebMercator tiling at zoom level
+`target_resolution`. `chunksize` sets the number of cells per chunk.
+"""
 function ProjectionTarget(::Type{<:WebMercatorTree},target_resolution;chunksize=256)
     tree = WebMercatorTree(target_resolution)
     clev = Int(log2(chunksize))

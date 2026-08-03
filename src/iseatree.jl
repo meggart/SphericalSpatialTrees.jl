@@ -4,6 +4,16 @@ using StaticArrays: @SVector
 import YAXArrayBase
 using FillArrays: Fill
 
+"""
+    ISEACircleTree(resolution)
+    ISEACircleTree(isea::ISEA, resolution)
+
+A spatial tree on the ISEA (Snyder equal-area) Discrete Global Grid System: 10
+diamond-shaped faces, each subdivided into `2^resolution × 2^resolution` cells.
+The tree is 3-dimensional with dimensions `(x, y, n_isea)` and
+`10 * 4^resolution` leaves, and can be used both as a regridding source and as
+a target.
+"""
 struct ISEACircleTree
     isea::ISEA{Float64}
     resolution::Int
@@ -85,6 +95,12 @@ function index_to_native_coords(i, tree::ISEACircleTree)
     x, y, n
 end
 
+"""
+    index_to_polygon_unitsphere(i, t)
+
+Return the cell boundaries of index `i` in tree `t` as a closed polygon of
+unit-sphere points.
+"""
 function index_to_polygon_unitsphere(i::Integer,t::ISEACircleTree)
     i,j,k = index_to_cartesian(i,t)
     index_to_polygon_unitsphere(CartesianIndex(i,j,k),t)
@@ -113,6 +129,12 @@ function TreeNode(tree::ISEACircleTree, target_indices)
 end
 
 
+"""
+    ProjectionTarget(::Type{ISEACircleTree}, target_resolution, chunk_resolution; iseaargs=())
+
+Create a regridding target on the ISEA DGGS: `target_resolution` sets the cell
+resolution and `chunk_resolution` the resolution of the chunk tree.
+"""
 function ProjectionTarget(::Type{ISEACircleTree},target_resolution, chunk_resolution;iseaargs=())
     isea = ISEA(iseaargs...)
     tree = ISEACircleTree(isea,target_resolution)
@@ -122,6 +144,13 @@ end
 
 
 
+"""
+    ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims=DD.dims(ISEACircleTree))
+
+Create a regridding source from an array with dimensions `(x, y, n_isea)`. The
+array must have 10 faces, square faces with power-of-two side lengths, and must
+be chunked (its chunks define the source chunk tree).
+"""
 function ProjectionSource(::Type{<:ISEACircleTree}, ar, spatial_dims = DD.dims(ISEACircleTree))
     isea = ISEA()
     nx,ny,n = size(ar)

@@ -21,10 +21,11 @@ function project_kernel_batched!(::NearestProjection, outar, targetinds,sourcear
     else
         targetcartind = CartesianIndices(targetinds)
         targetinds_split = Iterators.partition(targetcartind, div(length(targetcartind), Threads.nthreads(), Base.RoundUp))
+        #targetinds_split = Iterators.partition(targetcartind, div(length(targetcartind), 1, Base.RoundUp))
         res = map(targetinds_split) do indsubset
-            with_transform(isourcetrans) do mysourcetrans 
-                with_transform(targettrans) do mytargettrans
-                    t = Threads.@spawn begin
+            Threads.@spawn begin
+                with_transform(isourcetrans) do mysourcetrans
+                    with_transform(targettrans) do mytargettrans
                         for targetindex in indsubset
                             transform_item(targetindex, mysourcetrans, alllinind, targettree,lookups,outar,sourcearrays,chunks,mytargettrans)
                         end
