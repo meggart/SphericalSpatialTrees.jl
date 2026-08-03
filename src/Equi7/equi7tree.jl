@@ -110,6 +110,8 @@ end
 A spatial tree covering the 7 Equi7 zones (AF, AN, AS, EU, NA, OC, SA). Each
 zone's tiles are subdivided into `resolution × resolution` cells, giving a
 3-dimensional grid with dimensions `(x, y, zone)`.
+
+For more information on Equi7, see https://github.com/TUW-GEO/Equi7Grid.
 """
 struct Equi7Tree{T<:SST.TileNode}
     resolution::Int
