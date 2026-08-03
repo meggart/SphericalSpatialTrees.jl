@@ -12,7 +12,7 @@ using SphericalSpatialTrees.NativeISEA: transform_bary, bary_to_xy, PlaneCoordin
 using SphericalSpatialTrees.NativeISEA: dist_rhs, triple_product, A
 using SphericalSpatialTrees.NativeISEA: PickPlane
 
-approxeq(a, b; kwargs...) = begin
+approxeq_lonlat(a, b; kwargs...) = begin
     # Handle longitude wrapping for spherical coordinates
     if length(a) == 2 && length(b) == 2
         # Wrap difference to [-180, 180] range
@@ -249,7 +249,7 @@ end
     invisea10 = inv(isea10)
     back = invisea10(res)
     back_latlon = GeographicFromUnitSphere()(back)
-    @test approxeq(back_latlon, latlon; atol=1e-10)
+    @test approxeq_lonlat(back_latlon, latlon; atol=1e-10)
 end
 
 @testset "ISEA5 Transform" begin
@@ -265,7 +265,7 @@ end
     invisea5 = inv(isea5)
     back = invisea5(res)
     back_latlon = GeographicFromUnitSphere()(back)
-    @test approxeq(back_latlon, latlon; atol=1e-10)
+    @test approxeq_lonlat(back_latlon, latlon; atol=1e-10)
 end
 
 @testset "ISEATrianglesToDiamond and ISEADiamondToTriangles" begin
@@ -282,7 +282,7 @@ end
     
     # Test inverse
     back = to_triangles(res)
-    @test approxeq(back, (0.5, 0.5, 1); atol=1e-10)
+    @test approxeq_lonlat(back, (0.5, 0.5, 1); atol=1e-10)
     
     # Test south diamond (j=2)
     res_south = to_diamond((0.5, 0.5, 6))  # Triangle 6 is in south diamond
@@ -302,7 +302,7 @@ end
     @test length(res) == 3
     
     back = inv_rotate(res)
-    @test approxeq(back, (0.5, 0.5, 1); atol=1e-10)
+    @test approxeq_lonlat(back, (0.5, 0.5, 1); atol=1e-10)
 end
 
 @testset "ISEARectToDiamond and ISEADiamondToRect" begin
@@ -318,7 +318,7 @@ end
     @test length(res) == 3
     
     back = to_rect(res)
-    @test approxeq(back, (0.5, 0.5, 1); atol=1e-10)
+    @test approxeq_lonlat(back, (0.5, 0.5, 1); atol=1e-10)
 end
 
 @testset "PickPlane" begin
@@ -433,12 +433,12 @@ end
         # Test ISEA10
         res10 = ISEA10()(lonlat)
         back10 = inv(ISEA10())(res10)
-        @test approxeq(GeographicFromUnitSphere()(back10), lonlat; atol=1e-6)
+        @test approxeq_lonlat(GeographicFromUnitSphere()(back10), lonlat; atol=1e-6)
         
         # Test ISEA5
         res5 = ISEA5()(lonlat)
         back5 = inv(ISEA5())(res5)
-        @test approxeq(GeographicFromUnitSphere()(back5), lonlat; atol=1e-6)
+        @test approxeq_lonlat(GeographicFromUnitSphere()(back5), lonlat; atol=1e-6)
     end
 end
 

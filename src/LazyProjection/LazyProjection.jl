@@ -204,52 +204,7 @@ function Base.show(io::IO, ::MIME"text/plain", lpda::LazyProjectedDiskArray{T}) 
     print(io, "$dims_str LazyProjectedDiskArray{$T}")
 end
 
-function compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups::Tuple{Vararg{Any,Nsource}}, chunks, index_arraybuffer) where Nsource
-    alllinind = LinearIndices(gridsize(targettree))
-    #Ntarget = ndims(targettree)
-    inner_indexarray = fill((zero(CartesianIndex{Nsource}), zero(CartesianIndex{Nsource})), length.(targetinds)...)
-    indexarray = OffsetArray(inner_indexarray, targetinds...)
-    Threads.@threads for targetindex in CartesianIndices(targetinds)
-        ind = alllinind[targetindex]
-        unit = index_to_unitsphere(ind, targettree)
-        sourcecoords = isourcetrans(unit)
-        sourceindices = map(sourcecoords,lookups) do coord,look
-            DD.selectindices(look, DD.Near(coord))
-        end
-        chunkindices = map((c,i)->findchunk(c.val,i),chunks,sourceindices)
-        cI = CartesianIndex(chunkindices)
-        indexarray[targetindex] = (cI, CartesianIndex(sourceindices))
-    end
-    cartinds = first.(unique(first, indexarray))
-    if length(cartinds) > length(index_arraybuffer)
-        error("Too many connected chunks")
-    end
-    mybuffer = view(index_arraybuffer, 1:length(cartinds))
-    foreach(mybuffer) do b
-        empty!(first(b))
-        empty!(last(b))
-    end
-    for itarget in CartesianIndices(indexarray)
-        chunknum, iel = indexarray[itarget]
-        ichunk = findfirst(==(chunknum), cartinds)
-        vt, vs = index_arraybuffer[ichunk]
-        push!(vt, itarget)
-        push!(vs, iel)
-    end
-    return mybuffer
-end
-
 struct NearestProjection end
-
-function compute_indices(a::LazyProjectedDiskArray, targetinds, index_arraybuffer)
-    source = a.source
-    target = a.target
-    targettree = target.tree
-    isourcetrans = Base.inv(get_projection(source.tree))
-    lookups = DD.dims(source.lookups,source.chunks)
-    chunks = source.chunks
-    compute_nearest_per_chunk(targetinds, targettree, isourcetrans, lookups, chunks, index_arraybuffer)
-end
 
 function DiskArrays.readblock!(a::LazyProjectedDiskArray, aout, targetinds::AbstractUnitRange...; index_arraybuffer=make_indexbuffer(a.source.tree, a.target.tree))
     outarray = OffsetArray(aout, targetinds...)
