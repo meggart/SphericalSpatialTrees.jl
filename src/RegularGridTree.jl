@@ -5,7 +5,7 @@ import GeometryOps.SpatialTreeInterface: nchild, getchild, isleaf, child_indices
 import GeometryOps: extent
 import StaticArrays: @SVector
 import GeometryOps.Extents: Extent, bounds
-import LinearAlgebra: norm
+import LinearAlgebra: norm, cross
 import DimensionalData as DD
 
 
@@ -183,23 +183,38 @@ function node_to_polygon_unitsphere(grid::RegularGridTree, index::TreeIndex)
     grid.trans.(poly)
 end
 
-function circle_from_extent_1(ex, grid)
-    trans = grid.trans
+function _circle_from_pair(a, b)
+    c_ = (a+b)
+    c = c_/norm(c_)
+    r = spherical_distance(c, a)
+    SphericalCap(c, r*1.0001)
+end
+function _circle_from_3(a, b, c)
+    n_ = cross((b-a), (c-a))
+    sum(n_)==0.0 && return SphericalCap(a, 0.0)
+    n = UnitSphericalPoint(n_/norm(n_))
+    d = spherical_distance(a, n)
+    SphericalCap(n, d*1.0001)
+end
+
+circle_from_extent_1(ex, grid) = _circle_from_extent(ex, grid.trans)
+
+function _circle_from_extent(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
-    cx, cy = (x2 + x1) / 2, (y2 + y1) / 2
-    a, b, c, d, e, f, g, h = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2), (cx, y1), (x2, cy), (cx, y2), (x1, cy)))
-    z = trans((cx, cy))
-    alld = map(p->spherical_distance(z, p), (a, b, c, d, e, f, g, h))
-    r = reduce(max, alld)
-    #The following is done to not miss intersections through numerical inaccuracies
-    res = SphericalCap(z, r*1.0001)
-    # if !all(_contains.((res,), (a,b,c,d)))
-    #     @show a,b,c,d,e,f,g,h
-    #     @show e
-    #     @show alld
-    #     error()
-    # end
-    res
+    ta, tb, tc, td = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2)))
+    for points in ((ta, tc, tb, td), (tb, td, ta, tc), (ta, tb, tc, td), (tb, tc, ta, td), (tc, td, ta, tb), (td, ta, tb, tc))
+        c = _circle_from_pair(points[1], points[2])
+        if _contains(c, points[3]) && _contains(c, points[4])
+            return c
+        end
+    end
+    for points in ((ta, tb, tc, td), (tb, tc, td, ta), (tc, td, ta, tb), (td, ta, tb, tc))
+        c = _circle_from_3(points[1], points[2], points[3])
+        if _contains(c, points[4])
+            return c
+        end
+    end
+    error("No enclosing circle found")
 end
 
 get_step(x::AbstractRange) = step(x)
