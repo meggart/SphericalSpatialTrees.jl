@@ -183,6 +183,8 @@ Constructs a UTM Tree with x and y denoting the bounds in each UTM zone.
 """
 UTMTree(x, y) = UTMTree(x, y, UnitSphereFromUTM())
 
+UTMTree(;resolution_m=100.0) = UTMTree(range(90400,909600,step=resolution_m), range(-81900,10081900, step=resolution_m))
+
 """
     UTMTree(ar::DD.AbstractDimArray,spatial_dims;transform=UnitSphereFromUTM())
 
