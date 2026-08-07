@@ -8,6 +8,7 @@ using Test
     include("regulargridtree.jl")
     include("utmtree.jl")
     include("iseatree.jl")
+    include("equi7tree.jl")
     include("reproject.jl")
     include("lazyprojection.jl")
 end

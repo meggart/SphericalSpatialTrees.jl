@@ -13,3 +13,9 @@ nchild(t::TileNode) = length(t.children) + length(t.leaves)
 getchild(t::TileNode) = (getchild(t, i) for i in 1:nchild(t))
 isleaf(::TileNode) = false
 node_extent(t::TileNode) = t.extent
+
+function node_to_polygon_unitsphere(node::TileNode)
+    subpolys = isempty(node.children) ? Vector{UnitSphericalPoint{Float64}}[] : mapreduce(node_to_polygon_unitsphere, vcat, node.children)
+    ownpolys = map(node_to_polygon_unitsphere, node.leaves)
+    vcat(subpolys, ownpolys)
+end
