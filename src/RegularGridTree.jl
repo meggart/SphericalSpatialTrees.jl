@@ -171,6 +171,14 @@ function child_indices_extents(tree::TreeNode)
 end
 nleaf(t::RegularGridTree) = (length(t.x)-1)*(length(t.y)-1)
 
+function index_to_polygon_unitsphere(i::CartesianIndex, t)
+    node = TreeNode(t, i.I)
+    node_to_polygon_unitsphere(node)
+end
+function index_to_polygon_unitsphere(i::Integer, t)
+    ind = index_to_cartesian(i, t)
+    index_to_polygon_unitsphere(CartesianIndex(ind), t)
+end
 node_to_polygon_unitsphere(i::TreeNode) = node_to_polygon_unitsphere(i.grid, i.index)
 function node_to_polygon_unitsphere(grid::RegularGridTree, index::TreeIndex)
     x1, x2 = index.x
@@ -193,7 +201,7 @@ function _circle_from_3(a, b, c)
     n_ = cross((b-a), (c-a))
     sum(n_)==0.0 && return SphericalCap(a, 0.0)
     n = UnitSphericalPoint(n_/norm(n_))
-    if dot(n,a) < 0.0
+    if dot(n, a) < 0.0
         n = -n
     end
     d = spherical_distance(a, n)
@@ -205,15 +213,15 @@ circle_from_extent_1(ex, grid) = _circle_from_extent(ex, grid.trans)
 function _circle_from_extent(ex, trans)
     (x1, x2), (y1, y2) = bounds(ex)
     cx, cy = (x2 + x1) / 2, (y2 + y1) / 2
-    a,b,c,d,e,f,g,h = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2),(cx, y1), (x2, cy), (cx, y2), (x1, cy)))
+    a, b, c, d, e, f, g, h = map(trans, ((x1, y1), (x2, y1), (x2, y2), (x1, y2), (cx, y1), (x2, cy), (cx, y2), (x1, cy)))
     # Determine if we might run into 
-    has_large = any(((a,e),(b,f),(c,g),(d,h))) do (x,y)
-        ang = dot(x,y)
+    has_large = any(((a, e), (b, f), (c, g), (d, h))) do (x, y)
+        ang = dot(x, y)
         ang < 0.7 || ang==1.0
     end
     cap = if has_large
-        z = trans((cx,cy))
-        alld = map(p->spherical_distance(z, p), (a,b,c,d,e,f,g,h))
+        z = trans((cx, cy))
+        alld = map(p->spherical_distance(z, p), (a, b, c, d, e, f, g, h))
         r = reduce(max, alld)
         SphericalCap(z, r)
     else
@@ -229,8 +237,8 @@ function _circle_from_extent(ex, trans)
                 return cap
             end
         end
-        mapreduce(_merge,(a,c,b,d)) do p
-            SphericalCap(p,0.0)
+        mapreduce(_merge, (a, c, b, d)) do p
+            SphericalCap(p, 0.0)
         end
     end
     #The following is done to not miss intersections through numerical inaccuracies

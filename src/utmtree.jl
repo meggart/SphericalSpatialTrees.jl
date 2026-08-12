@@ -6,15 +6,16 @@ function (t::LazyProjTransform)(x)
 end
 allow_threaded_transformation(::LazyProjTransform) = false
 
-create_transform(t::LazyProjTransform, ctx) = if isinv(t) 
-    GeographicFromUnitSphere() ∘ Proj.Transformation("OGC:84",code(t),ctx=ctx) 
-else 
-    Proj.Transformation(code(t),"OGC:84",ctx=ctx) ∘ UnitSphereFromGeographic()
-end
-function with_transform(f,t::LazyProjTransform)
+create_transform(t::LazyProjTransform, ctx) =
+    if isinv(t)
+        GeographicFromUnitSphere() ∘ Proj.Transformation("OGC:84", code(t), ctx=ctx)
+    else
+        Proj.Transformation(code(t), "OGC:84", ctx=ctx) ∘ UnitSphereFromGeographic()
+    end
+function with_transform(f, t::LazyProjTransform)
     ctx = Proj.proj_context_create()
-    try 
-        _tt = create_transform(t,ctx)
+    try
+        _tt = create_transform(t, ctx)
         f(_tt)
     finally
         Proj.proj_context_destroy(ctx)
@@ -33,15 +34,15 @@ struct UTMTransform{T} <: Transformation
     projs::T
     ctx::Ptr{Nothing}
 end
-function (t::UTMTransform)((lon,lat))
+function (t::UTMTransform)((lon, lat))
     hemi = 1 + (lat < 0.0)
-    zone = Int((mod(lon+180,360)) ÷ 6) + 1
-    if ismissing(t.projs[zone,hemi])
+    zone = Int((mod(lon+180, 360)) ÷ 6) + 1
+    if ismissing(t.projs[zone, hemi])
         pstr = hemi==2 ? "+proj=utm +zone=$zone +south" : "+proj=utm +zone=$zone"
-        t.projs[zone,hemi] = Proj.Transformation("OGC:84",pstr,ctx=t.ctx) 
+        t.projs[zone, hemi] = Proj.Transformation("OGC:84", pstr, ctx=t.ctx)
     end
-    x,y = t.projs[zone,hemi]((lon,lat))
-    return (x,y,zone,hemi)
+    x, y = t.projs[zone, hemi]((lon, lat))
+    return (x, y, zone, hemi)
 end
 """
     IUTMTransform(; ctx=C_NULL)
@@ -53,25 +54,25 @@ struct IUTMTransform{T} <: Transformation
     projs::T
     ctx::Ptr{Nothing}
 end
-function (t::IUTMTransform)((x,y,zone,hemi))
-    if ismissing(t.projs[zone,hemi])
+function (t::IUTMTransform)((x, y, zone, hemi))
+    if ismissing(t.projs[zone, hemi])
         pstr = hemi==2 ? "+proj=utm +zone=$zone +south" : "+proj=utm +zone=$zone"
-        t.projs[zone,hemi] = Proj.Transformation(pstr,"OGC:84";ctx=t.ctx) 
+        t.projs[zone, hemi] = Proj.Transformation(pstr, "OGC:84"; ctx=t.ctx)
     end
-    lon,lat = t.projs[zone,hemi]((x,y))
-    return (lon,lat)
+    lon, lat = t.projs[zone, hemi]((x, y))
+    return (lon, lat)
 end
-Base.inv(t::UTMTransform) = IUTMTransform(ctx = t.ctx)
-Base.inv(t::IUTMTransform) = UTMTransform(ctx = t.ctx)
+Base.inv(t::UTMTransform) = IUTMTransform(ctx=t.ctx)
+Base.inv(t::IUTMTransform) = UTMTransform(ctx=t.ctx)
 
 
-function IUTMTransform(;ctx=C_NULL)
+function IUTMTransform(; ctx=C_NULL)
     projs = Union{Missing,Proj.Transformation}[missing for i in 1:60, j in 1:2]
-    IUTMTransform(projs,ctx)
+    IUTMTransform(projs, ctx)
 end
-function UTMTransform(;ctx=C_NULL)
+function UTMTransform(; ctx=C_NULL)
     projs = Union{Missing,Proj.Transformation}[missing for i in 1:60, j in 1:2]
-    UTMTransform(projs,ctx)
+    UTMTransform(projs, ctx)
 end
 
 """
@@ -90,8 +91,8 @@ A [`LazyProjTransform`](@ref) that maps unit-sphere points to `(x, y, zone,
 hemisphere)` coordinates in the UTM projection of the respective zone.
 """
 struct UTMFromUnitSphere <: LazyProjTransform end
-create_transform(::UnitSphereFromUTM,ctx) = UnitSphereFromGeographic() ∘ IUTMTransform(;ctx)
-create_transform(::UTMFromUnitSphere,ctx) = UTMTransform(;ctx) ∘ GeographicFromUnitSphere()
+create_transform(::UnitSphereFromUTM, ctx) = UnitSphereFromGeographic() ∘ IUTMTransform(; ctx)
+create_transform(::UTMFromUnitSphere, ctx) = UTMTransform(; ctx) ∘ GeographicFromUnitSphere()
 Base.inv(::UnitSphereFromUTM) = UTMFromUnitSphere()
 Base.inv(::UTMFromUnitSphere) = UnitSphereFromUTM()
 
@@ -107,25 +108,25 @@ is_valid_index(i::UTMIndex) = last(i.x)>first(i.x) && last(i.y)>first(i.y) && la
 _nchild(i::UTMIndex) = 4 ÷ (_isone(i.x) + _isone(i.y) + 1)
 function split_utm_updown(hemi, y)
     if hemi == 3
-        (1, y),(2,y)
+        (1, y), (2, y)
     else
-        y1,y2 = split_half(y)
-        (hemi,y1),(hemi,y2)
+        y1, y2 = split_half(y)
+        (hemi, y1), (hemi, y2)
     end
 end
-function split_utm_leftright(zone,x)
+function split_utm_leftright(zone, x)
     if _isone(zone)
-        x1,x2 = split_half(x)
-        (zone,x1),(zone,x2)
+        x1, x2 = split_half(x)
+        (zone, x1), (zone, x2)
     else
-        zone1,zone2 = split_half(zone)
-        (zone1,x),(zone2,x)
+        zone1, zone2 = split_half(zone)
+        (zone1, x), (zone2, x)
     end
 end
 function split_4(index::UTMIndex)
-    ((hemi1,y1),(hemi2,y2)) = split_utm_updown(index.hemi,index.y)
-    ((zone1,x1),(zone2,x2)) = split_utm_leftright(index.zone,index.x)
-    UTMIndex(x1,y1,zone1,hemi1), UTMIndex(x1,y2,zone1,hemi2), UTMIndex(x2,y1,zone2,hemi1), UTMIndex(x2,y2,zone2,hemi2)    
+    ((hemi1, y1), (hemi2, y2)) = split_utm_updown(index.hemi, index.y)
+    ((zone1, x1), (zone2, x2)) = split_utm_leftright(index.zone, index.x)
+    UTMIndex(x1, y1, zone1, hemi1), UTMIndex(x1, y2, zone1, hemi2), UTMIndex(x2, y1, zone2, hemi1), UTMIndex(x2, y2, zone2, hemi2)
 end
 
 struct UTMTree{DX,DY,T}
@@ -135,7 +136,7 @@ struct UTMTree{DX,DY,T}
 end
 function with_transform(f::F, tree::UTMTree) where F
     with_transform(tree.trans) do trans2
-        tree2 = UTMTree(tree.x,tree.y,trans2)
+        tree2 = UTMTree(tree.x, tree.y, trans2)
         f(tree2)
     end
 end
@@ -152,7 +153,7 @@ function DD.dims(r::UTMTree)
     xmid, ymid = map((r.x, r.y)) do d
         (d[1:(end-1)] .+ d[2:end]) ./ 2
     end
-    DD.X(xmid), DD.Y(ymid),DD.Dim{:ZONE}(1:60), DD.Dim{:Hemisphere}(1:2)
+    DD.X(xmid), DD.Y(ymid), DD.Dim{:ZONE}(1:60), DD.Dim{:Hemisphere}(1:2)
 end
 
 function Base.show(io::IO, tree::UTMTree)
@@ -183,7 +184,7 @@ Constructs a UTM Tree with x and y denoting the bounds in each UTM zone.
 """
 UTMTree(x, y) = UTMTree(x, y, UnitSphereFromUTM())
 
-UTMTree(;resolution_m=100.0) = UTMTree(range(90400,909600,step=resolution_m), range(-81900,10081900, step=resolution_m))
+UTMTree(; resolution_m=100.0) = UTMTree(range(90400, 909600, step=resolution_m), range(-81900, 10081900, step=resolution_m))
 
 """
     UTMTree(ar::DD.AbstractDimArray,spatial_dims;transform=UnitSphereFromUTM())
@@ -217,27 +218,27 @@ end
 
 get_tag(::UTMTree) = nothing
 nlevel(r::UTMTree) = max(ceil(Int, log2(length(r.x)))+6, ceil(Int, log2(length(r.y)))+1)
-rootnode(t::UTMTree) = TreeNode(t, UTMIndex((1, length(t.x)), (1, length(t.y)),(1,61),3))
+rootnode(t::UTMTree) = TreeNode(t, UTMIndex((1, length(t.x)), (1, length(t.y)), (1, 61), 3))
 extent(t::UTMTree, index::UTMIndex) = Extent(
-    X=(t.x[index.x[1]], t.x[index.x[2]]), 
+    X=(t.x[index.x[1]], t.x[index.x[2]]),
     Y=(t.y[index.y[1]], t.y[index.y[2]]),
-    ZONE=(index.zone[1],index.zone[2]-1),
-    Hemisphere= index.hemi==3 ? (1,2) : (index.hemi,index.hemi)
+    ZONE=(index.zone[1], index.zone[2]-1),
+    Hemisphere=index.hemi==3 ? (1, 2) : (index.hemi, index.hemi)
 )
 function linind(grid::UTMTree, index::UTMIndex)
-    LinearIndices((length(grid.x)-1, length(grid.y)-1,60,2))[index.x[1], index.y[1],index.zone[1],index.hemi]
+    LinearIndices((length(grid.x)-1, length(grid.y)-1, 60, 2))[index.x[1], index.y[1], index.zone[1], index.hemi]
 end
 isleaf(index::UTMIndex) = _isone(index.x) && _isone(index.y) && _isone(index.zone) && (index.hemi !== 3)
 function circle_from_extent_1(ex, grid::UTMTree)
     trans=grid.trans
-    (x1, x2), (y1, y2), (zone1,zone2),(hemi1,hemi2) = bounds(ex)
+    (x1, x2), (y1, y2), (zone1, zone2), (hemi1, hemi2) = bounds(ex)
     if hemi1 != hemi2
-        return SphericalCap(UnitSphereFromGeographic()((0.0,0.0)),π)
+        return SphericalCap(UnitSphereFromGeographic()((0.0, 0.0)), π)
     end
     cx, cy, cz = (x2 + x1) / 2, (y2 + y1) / 2, (zone1 + zone2) ÷ 2
-    a, b, c, d, e, f, g, h = map(trans, 
-        ((x1, y1, zone1, hemi1), (x2, y1, zone2, hemi1), (x2, y2,zone2,hemi1), (x1, y2,zone1, hemi1), 
-        (cx, y1, cz, hemi1), (x2, cy, zone2, hemi1), (cx, y2, cz, hemi1), (x1, cy, zone1, hemi1))
+    a, b, c, d, e, f, g, h = map(trans,
+        ((x1, y1, zone1, hemi1), (x2, y1, zone2, hemi1), (x2, y2, zone2, hemi1), (x1, y2, zone1, hemi1),
+            (cx, y1, cz, hemi1), (x2, cy, zone2, hemi1), (cx, y2, cz, hemi1), (x1, cy, zone1, hemi1))
     )
     z = trans((cx, cy, cz, hemi1))
     alld = map(p->spherical_distance(z, p), (a, b, c, d, e, f, g, h))
@@ -258,7 +259,7 @@ function node_to_polygon_unitsphere(grid::UTMTree, index::UTMIndex)
     y1, y2 = index.y
     xr = grid.x
     yr = grid.y
-    zone1,zone2 = index.zone
+    zone1, zone2 = index.zone
     if index.hemi == 3
         error("Can not make polygon across hemispheres")
     end
@@ -280,7 +281,7 @@ function TreeNode(tree::UTMTree, targetinds::Tuple)
     r1, r2, r3, r4 = targetinds
     ix1, ix2 = first(r1), last(r1)
     iy1, iy2 = first(r2), last(r2)
-    TreeNode(tree, UTMIndex((ix1, ix2+1), (iy1, iy2+1), (first(r3),last(r3)+1), (length(r4) == 2 ? 3 : first(r4))))
+    TreeNode(tree, UTMIndex((ix1, ix2+1), (iy1, iy2+1), (first(r3), last(r3)+1), (length(r4) == 2 ? 3 : first(r4))))
 end
 
 """
@@ -290,7 +291,7 @@ Create a regridding source from a `DD.AbstractDimArray` with dimensions
 `(x, y, ZONE, Hemisphere)`. The source chunk tree is derived from the chunking
 of `ar`.
 """
-function ProjectionSource(::Type{<:UTMTree}, ar, spatial_dims=(DD.XDim, DD.YDim, DD.Dim{:ZONE},DD.Dim{:Hemisphere}))
+function ProjectionSource(::Type{<:UTMTree}, ar, spatial_dims=(DD.XDim, DD.YDim, DD.Dim{:ZONE}, DD.Dim{:Hemisphere}))
     tree = UTMTree(ar, spatial_dims)
     lookups = map(DD.format, DD.dims(ar, spatial_dims))
     chunks = map(eachchunk(ar.data).chunks, DD.dims(ar)) do c, d
